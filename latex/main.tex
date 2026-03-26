@@ -1,0 +1,158 @@
+\documentclass{article}
+
+\usepackage{iclr2025_conference,times}
+\input{math_commands.tex}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{hyperref}
+% \usepackage[parfill]{parskip}
+
+\title{Inference-Time Adaptive Execution for Transformer Action Chunking in Robotic Manipulation\\\vspace{0.35em}\large CSC415 course project (final report)}
+\author{Zuhayr Ahmed, Charles Cheung, Lawrence Fu }
+\date{February 2026}
+
+\iclrfinalcopy
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We study adaptive execution for transformer-based action chunking in long-horizon robotic manipulation. The policy is trained with offline imitation from demonstrations; we focus on how it is \emph{executed} at inference time. Instead of committing to a fixed chunk length, we use disagreement/uncertainty signals to preempt inconsistent chunk continuations, improving reactivity near contact-rich transitions. We outline the method, validation on RoboMimic simulation, and ablations over dynamic execution rules.
+\end{abstract}
+
+\section{Introduction}
+
+Long-horizon robotic manipulation benefits from temporal abstraction, but policies must remain reactive near contact-rich decision points (e.g., grasping/insertion). Transformer-based action chunking predicts $k$ future actions to reduce decision frequency and compounding error, but most methods use a fixed $k$ (e.g., $k \approx 100$), which can reduce reactivity and introduce boundary instability. In particular, chunk switches can cause discontinuities or chunk-boundary inconsistency/jitter in real-time execution \cite{real_time_chunking,bidirect}.
+
+\textbf{RL framing.} We fit the chunking policy from a \emph{fixed offline dataset} of expert trajectories (imitation / behavioral cloning), then evaluate it in the same way as episodic RL in simulation: rollout return, success, and trajectory statistics. The environment remains a standard finite-horizon control problem; our contribution is the execution-time rule on top of the learned policy.
+
+\textbf{Objectives.} We will (1) design an adaptive execution mechanism that chooses how many actions to execute from each predicted chunk before replanning, using inference-time disagreement/uncertainty triggers, (2) compare this dynamic commit-length rule against fixed execute-all and receding-horizon execution, and (3) evaluate performance, reactivity, and robustness under perturbations.
+
+\textbf{Scope.} We use \textbf{RoboMimic} because it is a widely used manipulation benchmark with public expert datasets and a clear success signal, so results are easy to compare and reproduce. We focus on low-dimensional state observations and standard tasks (e.g., Lift, Can, Square) that include contact-rich phases where early vs.\ late replanning can change success, matching the simulator and data format in our implementation pipeline.
+
+
+\section{Related Work}
+\subsection{Transformer-based Sequence Modeling}
+
+This method reframes RL as a sequence modeling problem using sequences of tokens to represent state, action and reward, and uses Transformers and self-attention to capture long range dependency between those tokens.
+
+Decision Transformer \cite{chen2021decisiontransformerreinforcementlearning} is the first proposal in this direction, and models RL as conditional sequence prediction. It models trajectories autoregressively and uses a causal Transformer to condition on past states, actions, and one desired return.
+
+Trajectory Transformer \cite{janner2021offlinereinforcementlearningbig} extends that work and learns a generative model over environment transitions and full trajectories. States, actions and rewards are discretized and treated as tokens in the sequence model. Instead of directly producing actions, planning is performed by trajectory sampling or a search (beam search) at inference time.
+
+These papers establish Transformers as a viable architecture for RL sequence modeling. This is a different modeling choice than the tabular or function-approximation value-based methods from standard MDP formulations (e.g., approximate $V$ or $Q$ and derive a policy), but policies from either family can still be compared fairly in the \emph{same} simulator by rollout return or success. However, these sequence-modeling approaches mainly focus on planning quality and do not explicitly address real-time execution constraints introduced by action chunking (i.e., when to switch or commit while the robot is already moving) \cite{real_time_chunking}.
+
+
+\subsection{Action Chunking}
+
+The Action Chunking mechanism provides temporal abstraction by predicting $k$ future actions at once instead of predicting single actions, which reduces the length of the horizon by $k$ times, reduces compounding error and increases stability.
+
+Action Chunking with Transformers \cite{zhao2023} shows a Transformer-based policy specifically for robotics imitation learning. The policy predicts action chunks which are conditioned on visual observations and robot states, and demonstrates that Action Chunking can effectively model long-horizon robot manipulation performance. 
+
+Reinforcement Learning with Action Chunking \cite{li2025reinforcementlearningactionchunking} formalizes Action Chunking in RL as "Q-Chunking". The paper does not treat RL as a sequence modeling problem and still relies on value functions and policy gradient. The policy introduces multi-step action prediction directly into the reinforcement learning objective. The predictions are made in an extended-action-space.
+
+Bidirectional Decoding: Improving Action Chunking via Guided Test-Time Sampling \cite{bidirect} introduces a new algorithm called Bidirectional Decoding to improve the agent's ability to react to unexpected events when using action chunking. This run-time inference algorithm searches for possible predictions and chooses the optimal one based on both alignment with previous decisions and likelihood for future decisions, allowing for both long-term consistency and short-term reactivity, increasing the performance of the base generative algorithm.
+
+Mixture of Horizons in Action Chunking \cite{mixtureofhorizons} proposes a new strategy splitting the action chunk into multiple segments with different horizons, providing both benefits of better long-term planning from longer horizons and increased precision of shorter horizons. 
+
+These papers show that Action Chunking significantly improves long horizon performance, particularly for environments with sparse rewards or with compounding error from sequential decision making. Nevertheless, many approaches still rely on a fixed horizon $k$ and/or on smoothing strategies (e.g., temporal ensembling) to deal with chunk boundaries, which can reduce reactivity or lead to boundary discontinuities when switching occurs in real time \cite{real_time_chunking}.
+
+
+\subsection{Our Work}
+
+Most action-chunking policies use a fixed chunk length (e.g., $k \approx 100$), which improves long-horizon control but can reduce reactivity near decision points and cause jitter/inconsistency at chunk boundaries. Prior work on \emph{real-time} chunk execution addresses consistency across overlapping predictions under latency \cite{real_time_chunking}; bidirectional decoding and horizon mixtures address reactivity and multi-scale commitment in complementary ways \cite{bidirect,mixtureofhorizons}. We propose \textbf{adaptive chunk execution} in our setting: predict up to a maximum $k_{\max}$ actions with a Transformer chunk policy, but choose when to replan using inference-time disagreement/uncertainty triggers that preempt inconsistent chunk continuations.
+
+
+\section{Methodology}
+
+\subsection{Method}
+
+We extend a Transformer chunk policy that predicts an action chunk $(a_t,\dots,a_{t+k_{\max}-1})$ (with $k_{\max}$ as a maximum bound). At inference time, we maintain an action queue of already-committed actions and decide the next commit length (how many actions to keep executing before replanning) using inference-time triggers. Crucially, \emph{this commit-length decision does not require ground-truth labels}: we use discrepancy measures between overlapping action predictions to detect inconsistent chunk boundary behavior.
+
+\paragraph{Execution-time state and action queue.}
+Our executor keeps a FIFO queue of planned actions. When the queue is empty, it plans a new deterministic action chunk from the current observation and chooses an initial commit length based on the evaluation mode (execute-all, receding-horizon, or a dynamic rule).
+
+\paragraph{Primary dynamic rule: overlap disagreement (mid-execution preemption).}
+While a queue is active, we repeatedly:
+1. Predict a fresh candidate chunk from the current observation.
+2. Compute an overlap disagreement score between the candidate chunk and the remaining queued actions over an overlap window of size $w$.
+3. If the disagreement score exceeds a threshold $\tau$, we \emph{preempt} the current commit and trigger an immediate replan.
+
+When a preemption happens, we also choose a new planned commit length as a decreasing function of the overlap disagreement score (higher disagreement $\Rightarrow$ shorter commits), clamped to $[k_{\min},k_{\max}]$. This directly targets chunk-boundary inconsistency/jitter by stopping early when the model would otherwise continue with a materially different action trajectory than the one already being executed.
+
+\paragraph{Decide-at-start rule: action-change magnitude (cheap prefix selection).}
+In this ablation, the commit length is decided when planning a new chunk: we compute per-step action deltas inside the predicted chunk and select the longest stable prefix whose delta magnitude stays below a threshold $\delta$; if no threshold violation occurs, we execute the full chunk.
+
+\paragraph{Decide-at-start rule: stochastic uncertainty (sample-based prefix selection).}
+Similarly, we plan a chunk but generate $S$ stochastic chunk samples and compute per-step dispersion. We then choose the longest prefix whose dispersion stays below an uncertainty threshold $\epsilon$.
+
+Optionally, we evaluate temporal ensembling (averaging overlapping chunk predictions) as a smoothing ablation, since naive smoothing can fail under real-time chunk switching.
+
+We will validate the disagreement/uncertainty definitions and thresholds $(\tau,\delta,\epsilon,w)$ on a small held-out subset and use the best configuration for the main results.
+
+
+
+\subsection{Baselines}
+
+\begin{itemize}
+    \item BC-ConvMLP: a strong fixed-horizon imitation baseline that does not include adaptive termination, serving as a lower bound for commit-length adaptation.
+    \item ACT: an adaptive compute/halting-style baseline, included because it provides a natural comparator for termination-like decisions (even though the setting and objectives differ).
+    \item RT-1: a transformer-style policy for action prediction/planning without explicit learned commit-length, testing whether sequence modeling alone resolves boundary jitter.
+    \item VINN: a value/inference-based baseline that helps control for the effect of objective choice on reactivity and stability.
+    \item BeT: a behavior-transformer baseline that benchmarks transformer execution on imitation trajectories, used to isolate whether our termination mechanism provides additional value beyond standard transformers.
+\end{itemize}
+
+\noindent\textit{Practical scope.} Our implementation and primary comparisons focus on the chunk policy and execution modes in our codebase (full chunk, receding horizon, and dynamic rules). Larger vision--language baselines (e.g., RT-1) are included as relevant literature; we report them where resources and environment setup allow.
+
+\subsection{Experiments}
+
+We will evaluate on \textbf{RoboMimic} tasks (e.g., Lift, Can, Square). We will report return/success, number of replans per episode, $\mathbb{E}[m]$ where $m$ is the realized commit length chosen by the execution rule, and compute cost measured by policy queries, using 3--5 random seeds with error bars.
+
+Primary execution mode is dynamic overlap disagreement. We compare against execute-all (full chunk) and receding-horizon (commit length 1), plus the other dynamic rules (action-change magnitude and stochastic uncertainty) as ablations. Ablations include $k_{\max}$, $k_{\min}$, overlap window $w$, and thresholds $(\tau,\delta,\epsilon)$, and we optionally test temporal ensembling.
+
+For robustness, we will apply mid-trajectory perturbations (e.g., observation noise or object pose shifts, when supported) and measure recovery rate and final success.
+
+
+\section{Discussion}
+\paragraph{Limitations.} Our current evaluation plan includes simulation-based rollouts when the RoboMimic rollout stack is available; otherwise, we rely on offline validation and executor statistics to analyze commit-length behavior.
+
+\paragraph{Failure modes.} If disagreement/uncertainty thresholds are miscalibrated, the policy may replan too frequently (hurting stability) or too late (reducing reactivity), which will be tested in threshold ablations.
+
+\section{Conclusion}
+We propose inference-time adaptive commit-length execution for transformer chunk policies and plan a rigorous evaluation on RoboMimic tasks with controlled ablations and multi-seed statistics.
+
+\section{Team Contributions}
+In equal parts: Coding, Training, Inference. 
+Charles: Ablations. 
+Zuhayr: Analysis. 
+Lawrence: Evaluation, benchmarking. 
+
+As for timeline, the project paper is due on the March 24th, approximately one month from now. The final presentation will be due April 2nd.
+\begin{itemize}
+    \item Week 1: Architecture design, coding
+    \item Week 2: Coding
+    \item Week 3: Inference,  ablations, evaluation
+    \item Week 4: Analysis, writeup
+    \item Week 5: Prepare Presentation
+\end{itemize}
+
+
+\appendix
+
+\section{AI Usage Declaration}
+
+ChatGPT was used for minor writing edits and LaTeX phrasing. All technical ideas, method design, and experimental plans were developed by the team.
+
+
+
+\bibliographystyle{iclr2025_conference}
+\bibliography{refs}
+
+
+
+
+
+\end{document}

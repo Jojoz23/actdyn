@@ -1,0 +1,43 @@
+\begin{thebibliography}{7}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Black et~al.(2025)Black, Galliker, and Levine]{real_time_chunking}
+Kevin Black, Manuel~Y. Galliker, and Sergey Levine.
+\newblock Real-time action chunking with large models, 2025.
+\newblock URL \url{https://arxiv.org/abs/2506.07339}.
+
+\bibitem[Chen et~al.(2021)Chen, Lu, Rajeswaran, Lee, Grover, Laskin, Abbeel, Srinivas, and Mordatch]{chen2021decisiontransformerreinforcementlearning}
+Lili Chen, Kevin Lu, Aravind Rajeswaran, Kimin Lee, Aditya Grover, Michael Laskin, Pieter Abbeel, Aravind Srinivas, and Igor Mordatch.
+\newblock Decision transformer: Reinforcement learning via sequence modeling, 2021.
+\newblock URL \url{https://arxiv.org/abs/2106.01345}.
+
+\bibitem[Janner et~al.(2021)Janner, Li, and Levine]{janner2021offlinereinforcementlearningbig}
+Michael Janner, Qiyang Li, and Sergey Levine.
+\newblock Offline reinforcement learning as one big sequence modeling problem, 2021.
+\newblock URL \url{https://arxiv.org/abs/2106.02039}.
+
+\bibitem[Jing et~al.(2025)Jing, Wang, Liu, Tang, Sun, Yao, Wei, Liu, Lu, and Ding]{mixtureofhorizons}
+Dong Jing, Gang Wang, Jiaqi Liu, Weiliang Tang, Zelong Sun, Yunchao Yao, Zhenyu Wei, Yunhui Liu, Zhiwu Lu, and Mingyu Ding.
+\newblock Mixture of horizons in action chunking, 2025.
+\newblock URL \url{https://arxiv.org/html/2511.19433v1}.
+
+\bibitem[Li et~al.(2025)Li, Zhou, and Levine]{li2025reinforcementlearningactionchunking}
+Qiyang Li, Zhiyuan Zhou, and Sergey Levine.
+\newblock Reinforcement learning with action chunking, 2025.
+\newblock URL \url{https://arxiv.org/abs/2507.07969}.
+
+\bibitem[Liu et~al.(2024)Liu, Hamid, Xie, Lee, Du, and Finn]{bidirect}
+Yuejiang Liu, Jubayer~Ibn Hamid, Annie Xie, Yoonho Lee, Maximilian Du, and Chelsea Finn.
+\newblock Bidirectional decoding: Improving action chunking via guided test-time sampling, 2024.
+\newblock URL \url{https://arxiv.org/abs/2408.17355}.
+
+\bibitem[Zhao et~al.(2023)Zhao, Kumar, Levine, and Finn]{zhao2023}
+Tony~Z. Zhao, Vikash Kumar, Sergey Levine, and Chelsea Finn.
+\newblock Learning fine-grained bimanual manipulation with low-cost hardware, 2023.
+\newblock URL \url{https://arxiv.org/abs/2304.13705}.
+
+\end{thebibliography}

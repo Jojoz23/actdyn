@@ -1,0 +1,8 @@
+.venv*
+.venv-rollout310/
+__pycache__/
+runs/
+datasets/
+.mujoco/
+*.h5
+*.hdf5

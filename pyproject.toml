@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "actdyn-prototype"
+version = "0.1.0"
+description = "Rapid ACT-style dynamic execution prototype for RoboMimic low-dimensional Lift experiments."
+readme = "docs/README.md"
+requires-python = ">=3.14,<3.15"
+license = { text = "MIT" }
+authors = [
+  { name = "OpenAI ChatGPT" }
+]
+dependencies = [
+  "torch>=2.7",
+  "numpy>=2.1",
+  "h5py>=3.12",
+  "PyYAML>=6.0.2",
+  "tensorboard>=2.18",
+  "tqdm>=4.67",
+  "matplotlib>=3.10",
+]
+
+[project.optional-dependencies]
+rollout = [
+  "robomimic>=0.3.0",
+]
+
+[project.scripts]
+actdyn-train = "actdyn.train:main"
+actdyn-eval = "actdyn.eval:main"
+actdyn-inspect = "actdyn.inspect_dataset:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/actdyn"]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu128", marker = "sys_platform == 'win32'" },
+  { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+  { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
