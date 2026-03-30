@@ -39,11 +39,11 @@
 \usepackage{natbib}
 \setbeamerfont{caption}{size=\footnotesize}
 
-\title[Short title]{Title of your presentation}
-\subtitle{Subtitle of your presentation}
-\author{Your Name}
-\institute[]{Department / affiliation}
-\date{\today}
+\title[Adaptive Chunk Execution]{Inference-Time Adaptive Execution for Transformer Action Chunking}
+\subtitle{CSC415 Course Project Final Presentation}
+\author{Zuhayr Ahmed \and Charles Cheung \and Lawrence Fu}
+\institute[]{CSC415: Introduction to Reinforcement Learning}
+\date{April 2026}
 
 \makeatletter
 \setbeamertemplate{title page}{
@@ -85,105 +85,104 @@
 \begin{frame}{Contents}
     \begin{itemize}
         \item Motivation
-        \item Research gap \& Aim of the paper
-        \item Theoretical background
+        \item Research gap \& project aim
         \item Methodology
         \item Experimental setup
-        \item Results \& Discussion
-        \item Further research \& Limitations
+        \item Results \& discussion
+        \item Limitations and future work
     \end{itemize}
 \end{frame}
 
 \section{Motivation}
 \begin{frame}{Motivation}
     \begin{itemize}
-        \item \textbf{XYZ} -- your text
-
-        \vspace{0.2cm}
-        \footnotesize{\textit{(...your text)}}
-        \vspace{0.2cm}
-        \normalsize
-
-        \item \textbf{XYZ} -- your text
-        \begin{itemize}
-            \item tbc
-        \end{itemize}
-
-        \item \ldots
+        \item Transformer action chunking improves long-horizon control, but fixed chunk length can reduce reactivity near contact events.
+        \item Real-time execution can show chunk-boundary inconsistency/jitter under latency and uncertainty.
+        \item We focus on \textbf{inference-time execution policy}: when should a chunk be preempted and replanned?
+        \item Goal: improve success/reactivity tradeoff without changing simulator dynamics or requiring extra labels.
     \end{itemize}
 \end{frame}
 
-\section{Research gap \& Aim of the paper}
-\begin{frame}{Research gap \& Aim of the paper}
+\section{Research gap \& project aim}
+\begin{frame}{Research gap \& project aim}
     \begin{itemize}
-        \item To insert a table\ldots
+        \item Prior chunking methods usually fix execution horizon or use smoothing, but do not deeply study adaptive commits in our low-dim RoboMimic setup.
+        \item We propose adaptive commit-length execution using disagreement / delta / uncertainty rules and an optional learned commit head.
+        \item Core hypothesis: adaptive execution can match or improve rollout quality while reducing unnecessary replans.
     \end{itemize}
-    \vspace{0.3em}
-    \begin{center}
-        \footnotesize
-        \captionof{table}{Summary table of previous methods}\label{tab:summary}
-        \begin{tabular}{lrrr}
-            \toprule
-            Method & Property X & Property Y & Property Z \\
-            \midrule
-            A [cite] & 0.29 & 0.28 & 0.30  \\
-            B [cite] & 0.27 & 0.25 & 0.29 \\
-            B [cite] & 0.23 & 0.20 & 0.28 \\
-            \bottomrule
-        \end{tabular}
-
-        \vspace{0.3em}
-        % {\tiny Source: own elaboration based on \ldots}
-    \end{center}
-\end{frame}
-
-\section{Theoretical background}
-\begin{frame}{Theoretical background}
-    \begin{itemize}
-        \item To insert an equation\ldots
-    \end{itemize}
-    \begin{equation}
-        Y = \beta_0 + \beta_1 X + \epsilon
-    \end{equation}
 \end{frame}
 
 \section{Methodology}
 \begin{frame}{Methodology}
     \begin{itemize}
-        \item Your text
+        \item ACT-style chunk policy predicts $(a_t,\ldots,a_{t+k_{\max}-1})$.
+        \item Executor keeps FIFO action queue and decides commit length in $[k_{\min},k_{\max}]$.
+        \item Main rule: \textbf{overlap disagreement} preemption (replan early when new chunk conflicts with queued actions).
+        \item Ablation rules: action-change magnitude threshold, stochastic uncertainty threshold.
+        \item Optional learned head predicts commit class $\hat{m}$ from encoded observation.
+        \item ACT-style temporal ensembling included as a comparator mode.
     \end{itemize}
 \end{frame}
 
 \section{Experimental setup}
 \begin{frame}{Experimental setup}
     \begin{itemize}
-        \item Datasets
-        \item Simulation environments
-        \item Evaluation metrics
+        \item Tasks: RoboMimic low-dim Lift, Can, Square.
+        \item ACT-Strong config shared across tasks; matched eval protocol.
+        \item Baselines: BC-MLP, kNN-BC (VINN-style), BeT-style discrete BC.
+        \item Metrics: success, return, policy queries, replans/episode, commit statistics.
+        \item Rigor: ablations + learned-commit variant + 3-seed runs.
     \end{itemize}
 \end{frame}
 
 \section{Results \& Discussion}
-\begin{frame}{Results \& Discussion}
-    \begin{itemize}
-        \item To include a figure\ldots
-    \end{itemize}
-
-    \begin{figure}
-        \caption{XYZ}
-        \centering
-        % Replace with your figure (e.g. \includegraphics[width=7cm]{yourplot.pdf})
-        \fbox{\parbox{0.48\textwidth}{\centering\vspace{1.8cm}Your figure here\vspace{1.8cm}}}
-        \vspace{0.3em}
-
-        {\tiny Source: Authors' calculations}
-    \end{figure}
+\begin{frame}{ACT-Strong results (cross-task)}
+\footnotesize
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Task / mode & Success & Return \\
+\midrule
+Lift dynamic & 1.00 & 60.00 \\
+Lift temporal ensemble & 1.00 & 76.10 \\
+Can dynamic (z0) & 0.50 & 144.90 \\
+Can temporal ensemble (z0) & 1.00 & 289.15 \\
+Square dynamic (z0) & 0.15 & 42.05 \\
+Square receding (z0) & 0.20 & 41.70 \\
+\bottomrule
+\end{tabular}
+\vspace{0.5em}
+\begin{itemize}
+    \item Lift strongly supports adaptive execution.
+    \item Can is mixed and setting-sensitive (z0 vs sampled-latent ablations).
+    \item Square is challenging for all tested modes.
+\end{itemize}
 \end{frame}
 
-\section{Further research \& Limitations}
-\begin{frame}{Further research \& Limitations}
+\begin{frame}{Baseline summary (receding-horizon eval)}
+\footnotesize
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Task / baseline & Success & Return \\
+\midrule
+Lift BC / kNN / BeT & 0.65 / 0.75 / 0.75 & 70.7 / 44.4 / 127.3 \\
+Can BC / kNN / BeT & 0.00 / 0.30 / 0.30 & 0.0 / 58.65 / 33.75 \\
+Square BC / kNN / BeT & 0.05 / 0.35 / 0.05 & 0.3 / 43.0 / 5.6 \\
+\bottomrule
+\end{tabular}
+\vspace{0.5em}
+\begin{itemize}
+    \item Baselines are competitive on Lift, weaker on Can/Square.
+    \item Supports increased task difficulty from Lift to Can/Square in this setup.
+\end{itemize}
+\end{frame}
+
+\section{Limitations and future work}
+\begin{frame}{Limitations and future work}
     \begin{itemize}
-        \item Your text
+        \item Hypothesis outcome: \textbf{partially supported} (strong Lift, mixed Can, weak Square).
+        \item Dynamic rules likely need task-specific threshold calibration.
+        \item Future work: threshold sweeps, uncertainty calibration, and stronger representation learning for Square.
+        \item Add significance tests / confidence intervals across more seeds where compute allows.
     \end{itemize}
 \end{frame}
 
@@ -191,7 +190,7 @@
 \begin{frame}[allowframebreaks]{References}
 \tiny
 \nocite{*}
-\bibliography{references}
+\bibliography{refs}
 \bibliographystyle{apalike}
 \end{frame}
 
@@ -203,8 +202,7 @@
 
     \vspace{1.5cm}
     \normalsize
-    \textbf{Any Acknowledgments}
-    % \href{mailto:your.email@mail.utoronto.ca}{your.email@mail.utoronto.ca}
+    \textbf{Questions?}
 \end{frame}
 }
 

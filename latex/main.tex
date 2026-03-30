@@ -10,6 +10,11 @@
 \usepackage{booktabs}
 % \usepackage[parfill]{parskip}
 
+% Replace ICLR camera-ready publication banner with course-project notice.
+\makeatletter
+\def\@noticestring{CSC415 course project report}
+\makeatother
+
 \title{Inference-Time Adaptive Execution for Transformer Action Chunking in Robotic Manipulation\\\vspace{0.35em}\large CSC415 course project (final report)}
 \author{Zuhayr Ahmed, Charles Cheung, Lawrence Fu }
 \date{February 2026}
@@ -186,6 +191,8 @@ Across Lift multi-seed ACT-Strong runs (seeds 0/1/2), success remains $1.00 \pm 
 
 
 \section{Discussion}
+\paragraph{Hypothesis outcome.} Our central hypothesis is \emph{partially supported}. Adaptive execution is strongly supported on Lift, where dynamic commits match top success while reducing replans relative to receding horizon. On Can, behavior is mixed and sensitive to rollout setting (notably z0 versus sampled-latent ablations). On Square, all methods in our low-dimensional setup remain weak, indicating task difficulty dominates any single execution-rule choice under current training/data conditions.
+
 \paragraph{Limitations.} Rollout evaluation requires the optional RoboMimic/MuJoCo stack (we use a separate Python~3.10 environment in practice). Lift success can be dominated by imitation quality; execution-mode differences can appear in commit statistics even when success is low. RT-1, full VINN, and full BeT are not reproduced at original scale.
 
 \paragraph{Failure modes.} If disagreement/uncertainty thresholds are miscalibrated, the policy may replan too frequently (hurting stability) or too late (reducing reactivity). Threshold sweeps are supported by editing YAML and re-running evaluation.
