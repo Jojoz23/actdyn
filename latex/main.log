@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.10.24)  30 MAR 2026 04:40
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.10.24)  30 MAR 2026 11:02
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -341,8 +341,8 @@ Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
 \@lastruleclass=\count316
 \@thisrulewidth=\dimen181
 )
-LaTeX Font Info:    Trying to load font information for OT1+ptm on input line 1
-9.
+LaTeX Font Info:    Trying to load font information for OT1+ptm on input line 2
+4.
 
 (c:/texlive/2025/texmf-dist/tex/latex/psnfss/ot1ptm.fd
 File: ot1ptm.fd 2001/06/04 font definitions for OT1/ptm.
@@ -354,24 +354,24 @@ File: l3backend-pdftex.def 2025-10-09 L3 backend support: PDF output (pdfTeX)
 (./main.aux)
 \openout1 = `main.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 19.
-LaTeX Font Info:    ... okay on input line 19.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 19.
-LaTeX Font Info:    ... okay on input line 19.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 19.
-LaTeX Font Info:    ... okay on input line 19.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 19.
-LaTeX Font Info:    ... okay on input line 19.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 19.
-LaTeX Font Info:    ... okay on input line 19.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 19.
-LaTeX Font Info:    ... okay on input line 19.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 19.
-LaTeX Font Info:    ... okay on input line 19.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 19.
-LaTeX Font Info:    ... okay on input line 19.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 19.
-LaTeX Font Info:    ... okay on input line 19.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 24.
+LaTeX Font Info:    ... okay on input line 24.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 24.
+LaTeX Font Info:    ... okay on input line 24.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 24.
+LaTeX Font Info:    ... okay on input line 24.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 24.
+LaTeX Font Info:    ... okay on input line 24.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 24.
+LaTeX Font Info:    ... okay on input line 24.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 24.
+LaTeX Font Info:    ... okay on input line 24.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 24.
+LaTeX Font Info:    ... okay on input line 24.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 24.
+LaTeX Font Info:    ... okay on input line 24.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 24.
+LaTeX Font Info:    ... okay on input line 24.
  (c:/texlive/2025/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
 \scratchcounter=\count318
@@ -394,33 +394,27 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-Package hyperref Info: Link coloring OFF on input line 19.
+Package hyperref Info: Link coloring OFF on input line 24.
 
 (./main.out) (./main.out)
 \@outlinefile=\write3
 \openout3 = `main.out'.
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 22--22
+Underfull \hbox (badness 10000) in paragraph at lines 27--27
 []\OT1/ptm/m/sc/17.28 Inference-Time Adap-tive Ex-e-cu-tion for
  []
 
-LaTeX Font Info:    Trying to load font information for U+msa on input line 22.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 27.
 
 (c:/texlive/2025/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 22.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 27.
 
 
 (c:/texlive/2025/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
-)
-LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 3
-5.
-
-(c:/texlive/2025/texmf-dist/tex/latex/psnfss/ot1pcr.fd
-File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
 )
 
 [1{c:/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{c:/texlive/202
@@ -432,69 +426,71 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 [2]
-Underfull \hbox (badness 10000) in paragraph at lines 102--103
+LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 9
+9.
+ (c:/texlive/2025/texmf-dist/tex/latex/psnfss/ot1pcr.fd
+File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
+)
+Underfull \hbox (badness 10000) in paragraph at lines 107--108
 []\OT1/ptm/m/n/10 Thresholds $\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 ^^\; ^^N; ^^O; 
 w\OT1/cmr/m/n/10 )$ \OT1/ptm/m/n/10 and $\OML/cmm/m/it/10 k[]$ \OT1/ptm/m/n/10 
 are set in ver-sioned YAML con-figs (e.g.,
  []
 
 
-Underfull \hbox (badness 1635) in paragraph at lines 115--116
+Underfull \hbox (badness 1635) in paragraph at lines 120--121
 []\OT1/ptm/m/n/9 Feedforward be-hav-ioral cloning base-line that
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 116--117
+Underfull \hbox (badness 10000) in paragraph at lines 121--122
 []\OT1/ptm/m/n/9 Transformer chunk-ing pol-icy that pre-dicts
  []
 
 
-Underfull \hbox (badness 1565) in paragraph at lines 116--117
+Underfull \hbox (badness 1565) in paragraph at lines 121--122
 \OT1/ptm/m/n/9 multi-step ac-tion se-quences; ex-e-cu-tion mode
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 116--117
+Underfull \hbox (badness 10000) in paragraph at lines 121--122
 \OT1/ptm/m/n/9 (\OT1/pcr/m/n/9 full[]chunk\OT1/ptm/m/n/9 , \OT1/pcr/m/n/9 reced
 ing[]horizon\OT1/ptm/m/n/9 ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 116--117
+Underfull \hbox (badness 10000) in paragraph at lines 121--122
 \OT1/pcr/m/n/9 dynamic\OT1/ptm/m/n/9 , \OT1/pcr/m/n/9 temporal[]ensemble\OT1/pt
 m/m/n/9 ) is the
  []
 
 
-Underfull \hbox (badness 1708) in paragraph at lines 117--118
+Underfull \hbox (badness 1708) in paragraph at lines 122--123
 []\OT1/ptm/m/n/9 Observation-space nearest-neighbor ac-tion re-
  []
 
 
 
 [3]
-Underfull \hbox (badness 1210) in paragraph at lines 132--133
+Underfull \hbox (badness 1210) in paragraph at lines 137--138
 []\OT1/ptm/b/n/10 Execution modes \OT1/ptm/m/n/10 for the chunk pol-icy: \OT1/p
 cr/m/n/10 full[]chunk\OT1/ptm/m/n/10 , \OT1/pcr/m/n/10 receding[]horizon\OT1/pt
 m/m/n/10 , \OT1/pcr/m/n/10 dynamic
  []
 
 
-Overfull \hbox (33.71382pt too wide) in paragraph at lines 175--175
-[]\OT1/ptm/m/n/10 Table 3: []Lift ab-la-tions from \OT1/pcr/m/n/10 runs/actdyn[
-]lift[]strong/eval[]ablations/z0[]default[]modes\OT1/ptm/m/n/10 . 
- []
-
-
 
 [4]
-LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 1
-97.
+Underfull \vbox (badness 2707) has occurred while \output is active []
+
+
+
+[5]
+LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 2
+10.
  (c:/texlive/2025/texmf-dist/tex/latex/psnfss/ts1ptm.fd
 File: ts1ptm.fd 2001/06/04 font definitions for TS1/ptm.
-) (./main.bbl
-
-[5])
+) (./main.bbl)
 
 [6] (./main.aux)
  ***********
@@ -502,16 +498,16 @@ LaTeX2e <2025-06-01> patch level 1
 L3 programming layer <2025-10-09>
  ***********
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: EB81CDBFBEB5AA4D81345650B809B825;1852.
+(rerunfilecheck)             Checksum: 0E71FEA2F10EE2C172A21C90AD60CC2A;1755.
  ) 
 Here is how much of TeX's memory you used:
- 11561 strings out of 467747
- 166718 string characters out of 5431120
- 594349 words of memory out of 5000000
- 40040 multiletter control sequences out of 15000+600000
+ 11563 strings out of 467747
+ 166741 string characters out of 5431120
+ 595371 words of memory out of 5000000
+ 40041 multiletter control sequences out of 15000+600000
  653842 words of font info for 99 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 75i,11n,79p,806b,563s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,11n,79p,808b,507s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <c:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/tex
 live/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><c:/texlive/2025/
 texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><c:/texlive/2025/texmf-dist
@@ -524,10 +520,10 @@ sfonts/cm/cmsy10.pfb><c:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm
 xmf-dist/fonts/type1/urw/times/utmb8a.pfb><c:/texlive/2025/texmf-dist/fonts/typ
 e1/urw/times/utmr8a.pfb><c:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmri
 8a.pfb>
-Output written on main.pdf (6 pages, 158890 bytes).
+Output written on main.pdf (6 pages, 159764 bytes).
 PDF statistics:
- 222 PDF objects out of 1000 (max. 8388607)
- 186 compressed objects within 2 object streams
- 41 named destinations out of 1000 (max. 500000)
+ 223 PDF objects out of 1000 (max. 8388607)
+ 187 compressed objects within 2 object streams
+ 42 named destinations out of 1000 (max. 500000)
  113 words of extra memory for PDF output out of 10000 (max. 10000000)
 
