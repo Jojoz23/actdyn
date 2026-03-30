@@ -21,7 +21,7 @@
 \maketitle
 
 \begin{abstract}
-We study adaptive execution for transformer-based action chunking in long-horizon robotic manipulation. The policy is trained with offline imitation from demonstrations; our focus is how chunks are \emph{executed} at inference time. We compare fixed execute-all and receding-horizon execution against rule-based dynamic commits (overlap disagreement, action-change magnitude, stochastic dispersion) and an optional learned commit head trained with auxiliary labels from expert action smoothness. We evaluate on RoboMimic Lift with low-dimensional state, reporting success, return, commit-length statistics, replans, policy-query cost, and optional observation noise, alongside single-step and discrete-token imitation baselines implemented in the same codebase.
+We study adaptive execution for transformer-based action chunking in long-horizon robotic manipulation. The policy is trained with offline imitation from demonstrations; our focus is how chunks are \emph{executed} at inference time. We compare fixed execute-all and receding-horizon execution against rule-based dynamic commits (overlap disagreement, action-change magnitude, stochastic dispersion) and an optional learned commit head trained with auxiliary labels from expert action smoothness. We evaluate on RoboMimic Lift, Can, and Square with low-dimensional state, reporting success, return, commit-length statistics, replans, policy-query cost, and optional observation noise, alongside single-step and discrete-token imitation baselines implemented in the same codebase.
 \end{abstract}
 
 \section{Introduction}
@@ -32,7 +32,7 @@ Long-horizon robotic manipulation benefits from temporal abstraction, but polici
 
 \textbf{Objectives.} We (1) implement adaptive commit-length execution using inference-time disagreement/uncertainty triggers and optional learned $\hat{m}$, (2) compare dynamic execution against execute-all, receding-horizon, and ACT-style temporal ensembling on the \emph{same} trained chunk policy, and (3) report rollout metrics plus optional Gaussian observation noise and multi-seed training scripts.
 
-\textbf{Scope.} We use \textbf{RoboMimic} with \textbf{low-dimensional state} on the \textbf{Lift} task in our main experiments (the public \texttt{low\_dim} dataset and simulator stack we ship against). Additional tasks (e.g., Can, Square) are natural extensions but are not part of the default configs in our repository.
+\textbf{Scope.} We use \textbf{RoboMimic} with \textbf{low-dimensional state} on \textbf{Lift}, \textbf{Can}, and \textbf{Square}. All three tasks are run under a shared ACT-Strong protocol and matched baseline evaluation pipeline.
 
 
 \section{Related Work}
@@ -127,7 +127,7 @@ RT-1 & Visuomotor sequence model & Not reimplemented in this project; included a
 
 \subsection{Experiments}
 
-We evaluate on \textbf{RoboMimic Lift} with \textbf{low-dimensional observations}. We report episode success, return, horizon length, realized commit-length summaries ($\mathbb{E}[m]$, etc.), \textbf{replans per episode}, and \textbf{policy forward-query counts} (chunk forwards, stochastic multi-samples, and learned head forwards where applicable). Offline metrics include validation imitation loss (and commit CE when trained).
+We evaluate on \textbf{RoboMimic Lift, Can, and Square} with \textbf{low-dimensional observations}. We report episode success, return, horizon length, realized commit-length summaries ($\mathbb{E}[m]$, etc.), \textbf{replans per episode}, and \textbf{policy forward-query counts} (chunk forwards, stochastic multi-samples, and learned head forwards where applicable). Offline metrics include validation imitation loss (and commit CE when trained).
 
 \textbf{Execution modes} for the chunk policy: \texttt{full\_chunk}, \texttt{receding\_horizon}, \texttt{dynamic} (with selectable rules in config), \texttt{temporal\_ensemble} (ACT-style overlap averaging), and \texttt{learned\_commit} when the auxiliary head is trained. Single-step baselines (BC-MLP, kNN, BeT-style) are evaluated with \texttt{receding\_horizon} so the policy class matches one-step execution.
 
@@ -135,48 +135,54 @@ We evaluate on \textbf{RoboMimic Lift} with \textbf{low-dimensional observations
 
 \textbf{Seeds.} Training supports \texttt{--seed} and \texttt{--out-dir}; \texttt{scripts/train\_seeds.sh} loops multiple seeds. Reporting mean$\pm$std across seeds is recommended when time permits.
 
-\section{Current Lift Results (interim)}
+\section{Final Results}
 
-Table~\ref{tab:lift_main_results} summarizes the current Lift online rollout results from the finalized run folders. At this stage, our ACT dynamic executor reaches perfect success on Lift while using substantially fewer replans than receding-horizon execution. We also report the learned-commit variant and single-step baselines implemented in this repository.
-
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{@{}lccccc@{}}
-\toprule
-Method (mode) & Success $\uparrow$ & Return $\uparrow$ & Policy queries & Replans/ep $\downarrow$ & Commit mean \\
-\midrule
-ACT-Strong (dynamic) & 1.00 & 60.00 & 400.0 & 86.65 & 4.56 \\
-ACT-LearnedCommit (dynamic) & 1.00 & 38.35 & 400.0 & 101.25 & 3.91 \\
-BC-MLP (receding\_horizon) & 0.65 & 70.70 & 400.0 & 399.0 & 1.00 \\
-kNN-BC (receding\_horizon) & 0.75 & 44.40 & 400.0 & 399.0 & 1.00 \\
-BeT-style (receding\_horizon) & 0.75 & 127.30 & 400.0 & 399.0 & 1.00 \\
-\bottomrule
-\end{tabular}
-\caption{Interim Lift comparison from current run artifacts.}
-\label{tab:lift_main_results}
-\end{table}
-
-Table~\ref{tab:lift_ablations_results} reports the ACT execution-mode ablations for Lift. Dynamic execution preserves success while reducing replanning compared to receding horizon, and temporal ensembling provides a strong ACT-style reference.
+Table~\ref{tab:act_main_cross_task} summarizes ACT-Strong execution-mode outcomes on each task (using the z0 default-mode snapshots for Can/Square and finalized Lift eval). Lift supports our adaptive execution hypothesis strongly. Can is mixed: dynamic under z0 is weaker than temporal ensemble/full chunk, while sampled-latent ablations show dynamic can recover substantially. Square is difficult for all ACT modes under this setup.
 
 \begin{table}[t]
 \centering
 \small
 \begin{tabular}{@{}lccccc@{}}
 \toprule
-Mode (ACT-Strong) & Success $\uparrow$ & Return $\uparrow$ & Policy queries & Replans/ep $\downarrow$ & Commit mean \\
+Task / ACT mode & Success $\uparrow$ & Return $\uparrow$ & Policy queries & Replans/ep $\downarrow$ & Commit mean \\
 \midrule
-Temporal ensemble (z0) & 1.00 & 76.10 & 400.0 & 0.0 & -- \\
-Full chunk (z0) & 0.95 & 74.45 & 25.0 & 24.0 & 16.0 \\
-Receding horizon (z0) & 0.95 & 58.15 & 400.0 & 399.0 & 1.0 \\
-Dynamic (z0) & 1.00 & 60.00 & 400.0 & 86.65 & 4.56 \\
+Lift dynamic & 1.00 & 60.00 & 400.0 & 86.65 & 4.56 \\
+Lift temporal ensemble & 1.00 & 76.10 & 400.0 & 0.00 & -- \\
+Can dynamic (z0) & 0.50 & 144.90 & 400.0 & 217.60 & 1.83 \\
+Can temporal ensemble (z0) & 1.00 & 289.15 & 400.0 & 0.00 & -- \\
+Square dynamic (z0) & 0.15 & 42.05 & 400.0 & 184.20 & 2.16 \\
+Square receding horizon (z0) & 0.20 & 41.70 & 400.0 & 399.00 & 1.00 \\
 \bottomrule
 \end{tabular}
-\caption{Lift ablations from \texttt{runs/actdyn\_lift\_strong/eval\_ablations/z0\_default\_modes}.}
-\label{tab:lift_ablations_results}
+\caption{Cross-task ACT-Strong outcomes from finalized run artifacts.}
+\label{tab:act_main_cross_task}
 \end{table}
 
-Across Lift multi-seed ACT-Strong runs (seeds 0/1/2), success is currently $1.00 \pm 0.00$ (mean $\pm$ std). We treat this section as interim: Can and Square parity runs are currently executing, and final cross-task claims will be updated after those logs complete.
+Table~\ref{tab:baseline_cross_task} reports one-step baseline results (receding-horizon eval for all baselines). Baselines are competitive on Lift, mixed on Can, and generally weak on Square, consistent with increased task difficulty in this low-dimensional setting.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Task / baseline (receding) & Success $\uparrow$ & Return $\uparrow$ & Policy queries & Replans/ep $\downarrow$ & Commit mean \\
+\midrule
+Lift BC-MLP & 0.65 & 70.70 & 400.0 & 399.0 & 1.00 \\
+Lift kNN-BC & 0.75 & 44.40 & 400.0 & 399.0 & 1.00 \\
+Lift BeT-style & 0.75 & 127.30 & 400.0 & 399.0 & 1.00 \\
+Can BC-MLP & 0.00 & 0.00 & 400.0 & 399.0 & 1.00 \\
+Can kNN-BC & 0.30 & 58.65 & 400.0 & 399.0 & 1.00 \\
+Can BeT-style & 0.30 & 33.75 & 400.0 & 399.0 & 1.00 \\
+Square BC-MLP & 0.05 & 0.30 & 400.0 & 399.0 & 1.00 \\
+Square kNN-BC & 0.35 & 43.00 & 400.0 & 399.0 & 1.00 \\
+Square BeT-style & 0.05 & 5.60 & 400.0 & 399.0 & 1.00 \\
+\bottomrule
+\end{tabular}
+\caption{Cross-task baseline summary after baseline-eval recovery pass.}
+\label{tab:baseline_cross_task}
+\end{table}
+
+Across Lift multi-seed ACT-Strong runs (seeds 0/1/2), success remains $1.00 \pm 0.00$ (mean $\pm$ std). For Can and Square, multi-seed summaries are available in task seed folders and are consistent with the single-run trend: Can is mixed and sensitive to execution/latent settings, while Square remains challenging for all tested policies in this configuration.
 
 
 \section{Discussion}
@@ -185,7 +191,7 @@ Across Lift multi-seed ACT-Strong runs (seeds 0/1/2), success is currently $1.00
 \paragraph{Failure modes.} If disagreement/uncertainty thresholds are miscalibrated, the policy may replan too frequently (hurting stability) or too late (reducing reactivity). Threshold sweeps are supported by editing YAML and re-running evaluation.
 
 \section{Conclusion}
-We implemented inference-time adaptive commit-length execution for an ACT-style chunk policy, with heuristic rules, an optional learned commit head, imitation baselines (MLP BC, kNN, discrete-token BC), and shared rollout instrumentation. RT-1-scale models remain contextual citations rather than rerun baselines in this pipeline.
+We implemented inference-time adaptive commit-length execution for an ACT-style chunk policy, with heuristic rules, an optional learned commit head, imitation baselines (MLP BC, kNN, discrete-token BC), and shared rollout instrumentation. Final cross-task results support the proposal strongly on Lift, show mixed behavior on Can (including strong sampled-latent dynamic ablations), and reveal that Square is substantially harder under this low-dimensional setup. RT-1-scale models remain contextual citations rather than rerun baselines in this pipeline.
 
 \section{Team Contributions}
 In equal parts: Coding, Training, Inference. 
