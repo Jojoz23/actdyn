@@ -264,3 +264,76 @@ class RoboMimicLowDimDataset(Dataset):
             enabled=True,
         )
         return obs_norm, act_norm
+
+
+class RoboMimicStepDataset(Dataset):
+    """One (obs_t, a_t) per timestep for single-step BC (BC-MLP baseline)."""
+
+    def __init__(
+        self,
+        dataset_path: str | Path,
+        demo_keys: list[str],
+        obs_keys: list[str],
+        obs_normalizer: RunningNormalizer | None = None,
+        action_normalizer: RunningNormalizer | None = None,
+        normalize_obs: bool = True,
+        normalize_actions: bool = False,
+    ) -> None:
+        super().__init__()
+        self._h5_file = None
+        self.dataset_path = str(dataset_path)
+        self.demo_keys = list(demo_keys)
+        self.obs_keys = list(obs_keys)
+        self.normalize_obs = bool(normalize_obs)
+        self.normalize_actions = bool(normalize_actions)
+        self.obs_normalizer = obs_normalizer
+        self.action_normalizer = action_normalizer
+        self._index: list[tuple[str, int]] = []
+        self.obs_dim: int | None = None
+        self.act_dim: int | None = None
+
+        with h5py.File(self.dataset_path, "r") as f:
+            for demo_key in self.demo_keys:
+                demo = f["data"][demo_key]
+                n = int(demo["actions"].shape[0])
+                for t in range(n):
+                    self._index.append((demo_key, t))
+                if self.obs_dim is None:
+                    obs_dim = 0
+                    for key in self.obs_keys:
+                        obs_dim += int(np.prod(demo["obs"][key].shape[1:]))
+                    self.obs_dim = obs_dim
+                    self.act_dim = int(demo["actions"].shape[-1])
+
+        if self.obs_dim is None or self.act_dim is None:
+            raise ValueError("Failed to infer obs_dim or act_dim from dataset.")
+
+    def __len__(self) -> int:
+        return len(self._index)
+
+    def _get_file(self) -> h5py.File:
+        if self._h5_file is None:
+            self._h5_file = h5py.File(self.dataset_path, "r")
+        return self._h5_file
+
+    def _read_obs(self, demo: h5py.Group, t: int) -> np.ndarray:
+        parts: list[np.ndarray] = []
+        for key in self.obs_keys:
+            parts.append(_flatten_obs_array(demo["obs"][key][t]))
+        obs = np.concatenate(parts, axis=0).astype(np.float32)
+        if self.normalize_obs and self.obs_normalizer is not None:
+            obs = self.obs_normalizer.normalize(obs)
+        return obs
+
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
+        demo_key, t = self._index[index]
+        f = self._get_file()
+        demo = f["data"][demo_key]
+        obs = self._read_obs(demo, t)
+        a = np.asarray(demo["actions"][t], dtype=np.float32)
+        if self.normalize_actions and self.action_normalizer is not None:
+            a = self.action_normalizer.normalize(a)
+        return {
+            "obs": torch.from_numpy(obs),
+            "action": torch.from_numpy(a),
+        }

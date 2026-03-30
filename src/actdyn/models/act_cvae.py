@@ -6,7 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from actdyn.utils.misc import maybe_detach_dict
+from actdyn.execution.heuristics import expert_commit_length_from_chunk
+from actdyn.utils.misc import clamp_int, maybe_detach_dict
 
 
 @dataclass
@@ -47,6 +48,12 @@ class ACTCVAEPolicy(nn.Module):
         dropout: float = 0.1,
         action_loss: str = "l1",
         kl_beta: float = 1e-4,
+        use_commit_head: bool = False,
+        commit_loss_weight: float = 0.0,
+        commit_label_delta_threshold: float = 0.12,
+        commit_k_min: int = 1,
+        # Train decoder with z~p(z) (no future-action encoder). Matches rollout/predict_chunk; avoids collapsing into q(z|o,a).
+        deploy_loss_weight: float = 1.0,
     ) -> None:
         super().__init__()
         self.obs_dim = int(obs_dim)
@@ -56,6 +63,11 @@ class ACTCVAEPolicy(nn.Module):
         self.latent_dim = int(latent_dim)
         self.kl_beta = float(kl_beta)
         self.action_loss = str(action_loss)
+        self.use_commit_head = bool(use_commit_head)
+        self.commit_loss_weight = float(commit_loss_weight)
+        self.commit_label_delta_threshold = float(commit_label_delta_threshold)
+        self.commit_k_min = int(commit_k_min)
+        self.deploy_loss_weight = float(deploy_loss_weight)
 
         self.obs_encoder = MLP(obs_dim, d_model, d_model, num_layers=2, dropout=dropout)
         self.action_encoder = nn.Linear(act_dim, d_model)
@@ -92,6 +104,11 @@ class ACTCVAEPolicy(nn.Module):
             nn.LayerNorm(d_model),
             nn.Linear(d_model, act_dim),
         )
+        self.commit_head: nn.Module | None
+        if self.use_commit_head:
+            self.commit_head = nn.Linear(d_model, k_max)
+        else:
+            self.commit_head = None
 
     def encode_posterior(
         self,
@@ -160,6 +177,21 @@ class ACTCVAEPolicy(nn.Module):
             metrics={},
         )
 
+    def _action_reconstruction_loss(
+        self,
+        pred_logits: torch.Tensor,
+        actions: torch.Tensor,
+        is_pad: torch.Tensor,
+    ) -> torch.Tensor:
+        """Same squashing as predict_chunk (tanh); train/deploy target space match."""
+        pred = torch.tanh(pred_logits)
+        if self.action_loss == "mse":
+            per_elem = F.mse_loss(pred, actions, reduction="none")
+        else:
+            per_elem = F.l1_loss(pred, actions, reduction="none")
+        mask = (~is_pad).float().unsqueeze(-1)
+        return (per_elem * mask).sum() / mask.sum().clamp_min(1.0)
+
     def loss(
         self,
         obs: torch.Tensor,
@@ -168,23 +200,52 @@ class ACTCVAEPolicy(nn.Module):
         deterministic: bool = False,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         out = self.forward(obs=obs, actions=actions, is_pad=is_pad, deterministic=deterministic)
-        if self.action_loss == "mse":
-            per_elem = F.mse_loss(out.pred_actions, actions, reduction="none")
-        else:
-            per_elem = F.l1_loss(out.pred_actions, actions, reduction="none")
-        mask = (~is_pad).float().unsqueeze(-1)
-        action_loss = (per_elem * mask).sum() / mask.sum().clamp_min(1.0)
+        action_loss = self._action_reconstruction_loss(out.pred_actions, actions, is_pad)
 
         assert out.mu is not None and out.logvar is not None
         kl = -0.5 * (1 + out.logvar - out.mu.pow(2) - out.logvar.exp())
         kl = kl.mean()
         total = action_loss + self.kl_beta * kl
-        metrics = {
+        metrics: dict[str, torch.Tensor] = {
             "loss": total,
             "loss_action": action_loss,
             "loss_kl": kl,
         }
+
+        w = float(self.deploy_loss_weight)
+        if w != 0.0:
+            out_prior = self.forward(obs=obs, actions=None, is_pad=None, deterministic=deterministic)
+            action_loss_deploy = self._action_reconstruction_loss(out_prior.pred_actions, actions, is_pad)
+            total = total + w * action_loss_deploy
+            metrics["loss_action_deploy"] = action_loss_deploy
+            metrics["loss"] = total
+
+        if self.use_commit_head and self.commit_head is not None:
+            h = self.obs_encoder(obs)
+            logits = self.commit_head(h)
+            targets = self._commit_class_targets(actions, is_pad)
+            commit_loss = F.cross_entropy(logits, targets)
+            total = total + self.commit_loss_weight * commit_loss
+            metrics["loss_commit"] = commit_loss
+            metrics["loss"] = total
+
         return total, metrics
+
+    def _commit_class_targets(self, actions: torch.Tensor, is_pad: torch.Tensor) -> torch.Tensor:
+        b = actions.shape[0]
+        labels: list[int] = []
+        for i in range(b):
+            chunk = actions[i].detach().float().cpu().numpy()
+            pad = is_pad[i].detach().cpu().numpy().astype(bool)
+            m = expert_commit_length_from_chunk(
+                chunk,
+                pad,
+                self.commit_label_delta_threshold,
+                self.commit_k_min,
+                self.k_max,
+            )
+            labels.append(m - 1)
+        return torch.tensor(labels, device=actions.device, dtype=torch.long)
 
     @torch.no_grad()
     def predict_chunk(
@@ -198,13 +259,27 @@ class ACTCVAEPolicy(nn.Module):
 
         if num_samples == 1:
             out = self.forward(obs=obs, deterministic=deterministic)
-            return out.pred_actions
+            # Demos use normalized actions in [-1, 1]; tanh keeps rollouts in-range (linear head can extrapolate).
+            return torch.tanh(out.pred_actions)
 
         chunks = []
         for _ in range(num_samples):
             out = self.forward(obs=obs, deterministic=False)
-            chunks.append(out.pred_actions.unsqueeze(0))
+            chunks.append(torch.tanh(out.pred_actions).unsqueeze(0))
         return torch.cat(chunks, dim=0)
+
+    @torch.no_grad()
+    def predict_commit_length(self, obs: torch.Tensor) -> int:
+        """Argmax commit class -> length in [commit_k_min, k_max]. Requires use_commit_head=True."""
+        if not self.use_commit_head or self.commit_head is None:
+            raise RuntimeError("predict_commit_length requires model.use_commit_head=True.")
+        self.eval()
+        if obs.ndim == 1:
+            obs = obs.unsqueeze(0)
+        h = self.obs_encoder(obs)
+        logits = self.commit_head(h)
+        m = int(logits.argmax(dim=-1).item()) + 1
+        return int(clamp_int(m, self.commit_k_min, self.k_max))
 
     @torch.no_grad()
     def eval_loss_dict(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,10 @@ def load_config(path: str | Path) -> dict[str, Any]:
         cfg = yaml.safe_load(f)
     if cfg is None:
         raise ValueError(f"Config file {path} is empty.")
+    override = os.environ.get("ACTDYN_DATASET_PATH")
+    if override:
+        cfg.setdefault("dataset", {})
+        cfg["dataset"]["path"] = override
     return cfg
 
 

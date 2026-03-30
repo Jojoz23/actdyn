@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import Any
 
 import numpy as np
@@ -64,6 +65,28 @@ def load_env_from_dataset(dataset_path: str, use_image_obs: bool = False):
                 use_image_obs=use_image_obs,
             )
             break
+        except ModuleNotFoundError as exc:
+            missing = exc.name or ""
+            if missing == "mujoco_py":
+                raise RuntimeError(
+                    "RoboMimic is importing mujoco_py (legacy MuJoCo), which is not installed. "
+                    "Install this repo's rollout stack (robomimic v0.4 from git + robosuite + DeepMind mujoco). "
+                    "On Python 3.14 use a separate 3.13 venv (mujoco has no cp314 wheels): "
+                    "`uv venv .venv-rollout --python 3.13` then "
+                    "`UV_PROJECT_ENVIRONMENT=.venv-rollout uv sync --extra rollout` "
+                    "(do not use `uv sync --python .venv-rollout/bin/python` — that repoints the default "
+                    "`.venv`, not `.venv-rollout`). Or: `source .venv-rollout/bin/activate` and "
+                    "`uv sync --extra rollout --active`. Then run eval with `.venv-rollout/bin/python`. "
+                    "Alternatively use `actdyn.eval --offline-only`."
+                ) from exc
+            if missing in {"mujoco", "robosuite"}:
+                py = f"{sys.version_info.major}.{sys.version_info.minor}"
+                raise RuntimeError(
+                    f"Missing simulation package `{missing}` (Python {py}). "
+                    "Run `uv sync --extra rollout`. Rollouts need Python 3.10–3.13 for prebuilt mujoco wheels; "
+                    "use `uv venv --python 3.13` if sync fails on 3.14. Or use `--offline-only`."
+                ) from exc
+            raise
         except TypeError as exc:
             message = str(exc)
             marker = "unexpected keyword argument '"

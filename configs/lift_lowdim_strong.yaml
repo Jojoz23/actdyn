@@ -1,0 +1,78 @@
+# Stronger BC run: larger transformer, longer schedule, cosine LR + warmup.
+# Use on a GPU machine. Point dataset path at your low_dim_v15.hdf5, e.g.:
+#   actdyn-train --config configs/lift_lowdim_strong.yaml --dataset /path/to/low_dim_v15.hdf5
+# or: ACTDYN_DATASET_PATH=/path/to/low_dim_v15.hdf5 actdyn-train --config ...
+
+seed: 42
+
+dataset:
+  path: datasets/lift/ph/low_dim_v15.hdf5
+  obs_keys: []
+  filter_key_train: train
+  filter_key_val: valid
+  val_ratio: 0.1
+  normalize_obs: true
+  normalize_actions: false
+
+model:
+  k_max: 16
+  d_model: 384
+  nhead: 8
+  num_layers: 6
+  latent_dim: 48
+  dropout: 0.05
+  action_loss: l1
+  kl_beta: 0.0001
+  # At rollout, only prior z is used (no future actions). Weight>0 trains that path like ACT-style decoding.
+  deploy_loss_weight: 1.0
+
+optim:
+  lr: 0.0002
+  weight_decay: 0.00001
+  grad_clip_norm: 1.0
+  scheduler:
+    type: cosine_warmup
+    warmup_epochs: 15
+    min_lr: 1.0e-6
+
+train:
+  device: cuda
+  epochs: 150
+  batch_size: 512
+  val_batch_size: 512
+  num_workers: 8
+  log_every_steps: 50
+
+eval:
+  run_during_training: false
+  num_episodes: 20
+  max_horizon: 400
+  obs_noise_std: 0.0
+  obs_noise_seed: 42
+  # Rollout fixes: RoboMimic actions are in [-1,1]; clip avoids sim saturation from unbounded heads.
+  action_clip: 1.0
+  # ACT uses z=0 at deployment; sample_latent: true can help if the posterior is informative.
+  sample_latent: true
+  # Zhao et al. Temporal Ensembling (Algorithm 2); m matches paper scale (~0.01).
+  temporal_ensemble_m: 0.01
+  modes:
+    - temporal_ensemble
+    - full_chunk
+    - receding_horizon
+    - dynamic
+
+dynamic:
+  rule: overlap_disagreement
+  k_min: 1
+  overlap_window: 4
+  overlap_threshold: 0.08
+  delta_threshold: 0.12
+  uncertainty_threshold: 0.10
+  num_uncertainty_samples: 8
+
+logging:
+  out_dir: runs/actdyn_lift_strong
+
+checkpoint:
+  save_best: true
+  save_last: true

@@ -1,0 +1,57 @@
+# BeT-style discrete BC: k-means action clusters + MLP classifier over obs (low-dim).
+# Eval: receding_horizon (one decoded continuous action per step).
+
+seed: 42
+
+dataset:
+  path: datasets/lift/ph/low_dim_v15.hdf5
+  obs_keys: []
+  filter_key_train: train
+  filter_key_val: valid
+  val_ratio: 0.1
+  normalize_obs: true
+  normalize_actions: false
+
+model:
+  policy_type: bet_dbc
+  k_max: 16
+  bet_num_bins: 64
+  bc_hidden_dims: [512, 512, 256]
+  dropout: 0.1
+
+optim:
+  lr: 0.0003
+  weight_decay: 0.00001
+  grad_clip_norm: 1.0
+
+train:
+  device: cuda
+  epochs: 80
+  batch_size: 512
+  val_batch_size: 512
+  num_workers: 8
+  log_every_steps: 50
+
+eval:
+  num_episodes: 20
+  max_horizon: 400
+  obs_noise_std: 0.0
+  obs_noise_seed: 42
+  modes:
+    - receding_horizon
+
+dynamic:
+  rule: overlap_disagreement
+  k_min: 1
+  overlap_window: 4
+  overlap_threshold: 0.08
+  delta_threshold: 0.12
+  uncertainty_threshold: 0.10
+  num_uncertainty_samples: 8
+
+logging:
+  out_dir: runs/lift_bet_style
+
+checkpoint:
+  save_best: true
+  save_last: true

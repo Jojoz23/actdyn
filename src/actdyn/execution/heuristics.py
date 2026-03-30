@@ -75,3 +75,24 @@ def torch_chunk_to_numpy(chunk: torch.Tensor) -> np.ndarray:
     if chunk.ndim == 3 and chunk.shape[0] == 1:
         chunk = chunk[0]
     return chunk.detach().cpu().numpy().astype(np.float32)
+
+
+def expert_commit_length_from_chunk(
+    chunk: np.ndarray,
+    is_pad: np.ndarray,
+    delta_threshold: float,
+    k_min: int,
+    k_max: int,
+) -> int:
+    """
+    Auxiliary label for a learned commit head: longest stable prefix on *expert* actions
+    (same rule as action_change_magnitude at plan time). chunk (K, A), is_pad (K,) bool.
+    """
+    if chunk.ndim != 2 or is_pad.ndim != 1:
+        raise ValueError("chunk must be (K, A) and is_pad (K,).")
+    valid = int((~is_pad.astype(bool)).sum())
+    if valid <= 0:
+        return int(k_min)
+    sl = chunk[:valid]
+    deltas = action_delta_scores(sl)
+    return plan_commit_length_from_deltas(deltas, delta_threshold, k_min, k_max)

@@ -1,0 +1,69 @@
+# Temporal-ensemble-only eval variant for the Square ACT model.
+# Train with configs/square_lowdim.yaml, then evaluate with this config.
+
+seed: 42
+
+dataset:
+  path: datasets/square/ph/low_dim_v15.hdf5
+  obs_keys: []
+  filter_key_train: train
+  filter_key_val: valid
+  val_ratio: 0.1
+  normalize_obs: true
+  normalize_actions: false
+
+model:
+  k_max: 16
+  d_model: 384
+  nhead: 8
+  num_layers: 6
+  latent_dim: 48
+  dropout: 0.05
+  action_loss: l1
+  kl_beta: 0.0001
+  deploy_loss_weight: 1.0
+
+optim:
+  lr: 0.0002
+  weight_decay: 0.00001
+  grad_clip_norm: 1.0
+  scheduler:
+    type: cosine_warmup
+    warmup_epochs: 15
+    min_lr: 1.0e-6
+
+train:
+  device: cuda
+  epochs: 150
+  batch_size: 512
+  val_batch_size: 512
+  num_workers: 8
+  log_every_steps: 50
+
+eval:
+  run_during_training: false
+  num_episodes: 20
+  max_horizon: 400
+  obs_noise_std: 0.0
+  obs_noise_seed: 42
+  action_clip: 1.0
+  sample_latent: false
+  temporal_ensemble_m: 0.01
+  modes:
+    - temporal_ensemble
+
+dynamic:
+  rule: overlap_disagreement
+  k_min: 1
+  overlap_window: 4
+  overlap_threshold: 0.08
+  delta_threshold: 0.12
+  uncertainty_threshold: 0.10
+  num_uncertainty_samples: 8
+
+logging:
+  out_dir: runs/actdyn_square_strong
+
+checkpoint:
+  save_best: true
+  save_last: true
