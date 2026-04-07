@@ -17,7 +17,7 @@
 \makeatother
 
 \title{Inference-Time Adaptive Execution for Transformer Action Chunking in Robotic Manipulation\\\vspace{0.35em}\large CSC415 course project (final report)}
-\author{Zuhayr Ahmed, Charles Cheung, Lawrence Fu }
+\author{Zuhayr Ahmed, Charles Cheung, Lawrence Fu}
 \date{April 2026}
 
 \iclrfinalcopy
@@ -29,7 +29,7 @@
 \lhead{CSC415 course project report}
 
 \begin{abstract}
-We study adaptive execution for transformer-based action chunking in long-horizon robotic manipulation. The policy is trained with offline imitation from demonstrations; our focus is how chunks are \emph{executed} at inference time. We compare fixed execute-all and receding-horizon execution against rule-based dynamic commits (overlap disagreement, action-change magnitude, stochastic dispersion) and an optional learned commit head trained with auxiliary labels from expert action smoothness. We evaluate on RoboMimic Lift, Can, and Square with low-dimensional state, reporting success, return, commit-length statistics, replans, policy-query cost, and optional observation noise, alongside single-step and discrete-token imitation baselines implemented in the same codebase.
+We study adaptive execution for transformer-based action chunking in long-horizon robotic manipulation. The policy is trained with offline imitation from demonstrations; our focus is how chunks are \emph{executed} at inference time. We compare fixed execute-all and receding-horizon execution against rule-based dynamic commits (overlap disagreement, action-change magnitude, stochastic dispersion) and an optional learned commit head trained with auxiliary labels from expert action smoothness. We evaluate on RoboMimic Lift, Can, and Square with low-dimensional state, reporting success, return, commit-length statistics, replans, policy-query cost, and optional observation noise, alongside single-step and discrete-token imitation baselines under the same evaluation setup.
 \end{abstract}
 
 \section{Introduction}
@@ -38,7 +38,7 @@ Long-horizon robotic manipulation benefits from temporal abstraction, but polici
 
 \textbf{RL framing.} We fit the chunking policy from a \emph{fixed offline dataset} of expert trajectories (imitation / behavioral cloning), then evaluate it in the same way as episodic RL in simulation: rollout return, success, and trajectory statistics. The environment remains a standard finite-horizon control problem; our contribution is the execution-time rule on top of the learned policy.
 
-\textbf{Objectives.} We (1) implement adaptive commit-length execution using inference-time disagreement/uncertainty triggers and optional learned $\hat{m}$, (2) compare dynamic execution against execute-all, receding-horizon, and ACT-style temporal ensembling on the \emph{same} trained chunk policy, and (3) report rollout metrics plus optional Gaussian observation noise and multi-seed training scripts.
+\textbf{Objectives.} We (1) implement adaptive commit-length execution using inference-time disagreement/uncertainty triggers and optional learned $\hat{m}$, (2) compare dynamic execution against execute-all, receding-horizon, and ACT-style temporal ensembling on the \emph{same} trained chunk policy, and (3) report rollout metrics plus optional Gaussian observation noise and multi-seed retraining for robustness.
 
 \textbf{Scope.} We use \textbf{RoboMimic} with \textbf{low-dimensional state} on \textbf{Lift}, \textbf{Can}, and \textbf{Square}. All three tasks are run under a shared ACT-Strong protocol and matched baseline evaluation pipeline.
 
@@ -48,7 +48,7 @@ Long-horizon robotic manipulation benefits from temporal abstraction, but polici
 
 Sequence-modeling approaches reframe RL as token prediction over trajectories, using Transformers and self-attention to capture long-range dependencies among states, actions, and returns.
 
-Decision Transformer \cite{chen2021decisiontransformerreinforcementlearning} is the first proposal in this direction, and models RL as conditional sequence prediction. It models trajectories autoregressively and uses a causal Transformer to condition on past states, actions, and one desired return.
+Decision Transformer \cite{chen2021decisiontransformerreinforcementlearning} is an early influential approach in this direction: it frames RL as conditional sequence prediction, models trajectories autoregressively with a causal Transformer conditioned on past states, actions, and a target return.
 
 Trajectory Transformer \cite{janner2021offlinereinforcementlearningbig} extends that work and learns a generative model over environment transitions and full trajectories. States, actions and rewards are discretized and treated as tokens in the sequence model. Instead of directly producing actions, planning is performed by trajectory sampling or a search (beam search) at inference time.
 
@@ -57,11 +57,11 @@ These papers establish Transformers as a viable architecture for RL sequence mod
 
 \subsection{Action Chunking}
 
-The Action Chunking mechanism provides temporal abstraction by predicting $k$ future actions at once instead of predicting single actions, which reduces the length of the horizon by $k$ times, reduces compounding error and increases stability.
+Action chunking provides temporal abstraction by predicting $k$ future actions at once rather than one action at a time, shortening the effective horizon by a factor of $k$, reducing compounding error, and often improving stability.
 
 Action Chunking with Transformers \cite{zhao2023} shows a Transformer-based policy specifically for robotics imitation learning. The policy predicts action chunks which are conditioned on visual observations and robot states, and demonstrates that Action Chunking can effectively model long-horizon robot manipulation performance. 
 
-Reinforcement Learning with Action Chunking \cite{li2025reinforcementlearningactionchunking} formalizes Action Chunking in RL as "Q-Chunking". The paper does not treat RL as a sequence modeling problem and still relies on value functions and policy gradient. The policy introduces multi-step action prediction directly into the reinforcement learning objective. The predictions are made in an extended-action-space.
+Reinforcement Learning with Action Chunking \cite{li2025reinforcementlearningactionchunking} formalizes Action Chunking in RL as ``Q-Chunking''. The paper does not treat RL as a sequence modeling problem and still relies on value functions and policy gradient. The policy introduces multi-step action prediction directly into the reinforcement learning objective. The predictions are made in an extended-action-space.
 
 Bidirectional Decoding: Improving Action Chunking via Guided Test-Time Sampling \cite{bidirect} introduces a new algorithm called Bidirectional Decoding to improve the agent's ability to react to unexpected events when using action chunking. This run-time inference algorithm searches for possible predictions and chooses the optimal one based on both alignment with previous decisions and likelihood for future decisions, allowing for both long-term consistency and short-term reactivity, increasing the performance of the base generative algorithm.
 
@@ -74,6 +74,7 @@ These papers show that Action Chunking significantly improves long horizon perfo
 
 Most action-chunking policies use a fixed chunk length (e.g., $k \approx 100$), which improves long-horizon control but can reduce reactivity near decision points and cause jitter/inconsistency at chunk boundaries. Prior work on \emph{real-time} chunk execution addresses consistency across overlapping predictions under latency \cite{real_time_chunking}; bidirectional decoding and horizon mixtures address reactivity and multi-scale commitment in complementary ways \cite{bidirect,mixtureofhorizons}. We propose \textbf{adaptive chunk execution} in our setting: predict up to a maximum $k_{\max}$ actions with a Transformer chunk policy, but choose when to replan using inference-time disagreement/uncertainty triggers that preempt inconsistent chunk continuations.
 
+Relative to these lines, our prototype is closest in spirit to latency-aware overlap consistency \cite{real_time_chunking}, but we emphasize a simple \emph{scalar disagreement test} between the queued segment and a fresh prediction to trigger preemption and shorten commits under conflict, without bidirectional search over decoded candidates \cite{bidirect} and without learning an explicit multi-horizon mixture \cite{mixtureofhorizons}. The goal is a lightweight execution layer that reuses the same trained chunk policy while changing only how actions are committed over time.
 
 \section{Methodology}
 
@@ -133,6 +134,8 @@ If $\text{score}>\tau$, the executor \emph{preempts}: it replaces the queue with
 
 \subsection{Baselines and comparators}
 
+Table~\ref{tab:baselines} lists the imitation baselines and the ACT-style chunk policy we compare against (high-level descriptions; hyperparameters are fixed per task in our experiments).
+
 \begin{table}[H]
 \centering
 \small
@@ -146,7 +149,7 @@ kNN-BC (VINN-style) & Nonparametric imitation & Observation-space nearest-neighb
 BeT-style & Discrete behavior model & Discretized-action imitation baseline using behavior tokenization with a classifier over action bins. \\
 \bottomrule
 \end{tabular}
-\caption{Baselines and comparators used in this report, described at the method level (without implementation-specific config details).}
+\caption{Imitation baselines and ACT chunk-policy comparator evaluated in this work.}
 \label{tab:baselines}
 \end{table}
 
@@ -158,15 +161,17 @@ We evaluate on \textbf{RoboMimic Lift, Can, and Square} with \textbf{low-dimensi
 
 \textbf{Execution modes} for the chunk policy are full-chunk execution, receding-horizon execution, dynamic execution (with selectable rules), temporal ensembling, and learned-commit execution when the auxiliary head is trained. Single-step baselines (BC-MLP, kNN, BeT-style) are evaluated with receding-horizon execution so the policy class matches one-step control.
 
+\textbf{Dynamic rule in reported results.} Every \emph{dynamic} row and appendix entry uses the \textbf{overlap-disagreement} rule (mid-execution preemption). The decide-at-start heuristics (action-change magnitude and stochastic dispersion) are implemented but are not included in the reported rollout sweeps below.
+
 \textbf{Robustness.} We optionally add Gaussian noise to the normalized observation vector at rollout time. We do not yet simulate object pose resets mid-episode.
 
 \textbf{Seeds.} We fix Python/NumPy/Torch random seeds for reproducibility (default seed $42$) and retrain with multiple seeds (e.g.\ $0,1,2$) into separate run directories. Multi-seed summaries are reported for Lift, Can, and Square (Appendix Table~\ref{tab:seed_all_tasks}).
 
 \section{Final Results}
 
-Table~\ref{tab:act_main_cross_task} lists all four primary execution modes for each task under deterministic latent decoding. Numbers are mean success rate and return over $20$ episodes per mode, with mean policy queries, replans, and realized commit statistics from the same logs. Returns are task-specific simulator rewards and are compared within each task (not averaged across tasks). Learned-commit rollouts use checkpoints trained with the auxiliary commit head; Table~\ref{tab:learned_commit} in the appendix reports those results. Lift learned offline metrics are: total loss $\approx 0.850$, action loss $\approx 0.222$, KL $\approx 6.16$, commit CE $\approx 1.232$, and prior-z0 action loss $\approx 0.442$.
+Table~\ref{tab:act_main_cross_task} lists all four primary execution modes for each task under deterministic latent decoding. Numbers are mean success rate and return over $20$ episodes per mode, with mean policy queries, replans, and realized commit statistics from the same logs. Returns are task-specific simulator rewards and are compared within each task (not averaged across tasks). Learned-commit rollouts use checkpoints trained with the auxiliary commit head; Table~\ref{tab:learned_commit} in the appendix reports those results. Lift learned offline metrics are: total loss $\approx 0.850$, action loss $\approx 0.222$, KL $\approx 6.16$, commit CE $\approx 1.232$, and prior-$z{=}0$ action loss $\approx 0.442$.
 
-Lift supports adaptive overlap execution at full success with fewer replans than receding horizon. Can shows strong temporal ensembling and full-chunk performance under z0, while dynamic overlap underperforms in this snapshot (sampled-latent ablations partially recover dynamic; see artifact folders). Square remains difficult across modes; receding horizon achieves slightly higher success than dynamic in this z0 table.
+Lift supports adaptive overlap execution at full success with fewer replans than receding horizon. Can shows strong temporal ensembling and full-chunk performance under z0, while dynamic overlap underperforms in this snapshot (sampled-latent ablations partially recover dynamic; Appendix Table~\ref{tab:abl_sampled_all_tasks}). Square remains difficult across modes; receding horizon achieves slightly higher success than dynamic in this z0 table.
 Learned-commit results show mixed transfer across tasks: Lift remains highly successful but with very short realized commits on average, Can attains moderate success with slightly longer commits, and Square remains difficult despite frequent replanning.
 
 \begin{table}[H]
@@ -216,7 +221,7 @@ Square kNN-BC & 0.35 & 43.00 & 400.0 & 399.0 & 1.00 \\
 Square BeT-style & 0.05 & 5.60 & 400.0 & 399.0 & 1.00 \\
 \bottomrule
 \end{tabular}
-\caption{Cross-task baseline summary after baseline-eval recovery pass.}
+\caption{Cross-task one-step imitation baselines under receding-horizon evaluation ($20$ episodes per cell).}
 \label{tab:baseline_cross_task}
 \end{table}
 
@@ -229,10 +234,14 @@ Additional all-task sampled-latent ablation snapshots and multi-seed aggregates 
 
 \paragraph{Limitations.} Rollout evaluation requires the optional RoboMimic/MuJoCo stack (we use a separate rollout environment in practice, with Python version depending on MuJoCo compatibility). Lift success can be dominated by imitation quality; execution-mode differences can appear in commit statistics even when success is low. Large-scale vision-language imitation systems and full-scale VINN/BeT reproductions are outside this project scope.
 
-\paragraph{Failure modes.} If disagreement/uncertainty thresholds are miscalibrated, the policy may replan too frequently (hurting stability) or too late (reducing reactivity). Threshold sweeps are supported by editing YAML and re-running evaluation.
+\paragraph{Failure modes.} If disagreement/uncertainty thresholds are miscalibrated, the policy may replan too frequently (hurting stability) or too late (reducing reactivity). Threshold sweeps require editing experiment configuration and re-running evaluation.
+
+\paragraph{Why Square remains difficult.} Square is contact-rich and tolerance-sensitive: small imitation or timing errors in peg insertion easily accumulate, so all policies we tested stay near chance-level success in the low-dimensional observation setting. When the underlying policy is weak, changing execution (receding vs.\ overlap dynamic vs.\ ensembling) mainly reshapes replanning cost and commit statistics rather than unlocking reliable success; stronger data, representations, or training signals likely matter more than a single heuristic execution rule.
 
 \section{Conclusion}
 We implemented inference-time adaptive commit-length execution for an ACT-style chunk policy, with heuristic rules, an optional learned commit head, imitation baselines (MLP BC, kNN, discrete-token BC), and shared rollout instrumentation. Final cross-task results support the proposal strongly on Lift, show mixed behavior on Can (including strong sampled-latent dynamic ablations), and reveal that Square is substantially harder under this low-dimensional setup.
+
+Natural extensions include systematic threshold sweeps for overlap disagreement, reporting decide-at-start heuristics under the same evaluation matrix, adding seeds or confidence intervals beyond our three-seed summary, and moving from low-dimensional state to image observations where chunk-boundary effects may differ.
 
 \section{Team Contributions}
 In equal parts: Coding, Training, Inference. 
@@ -243,7 +252,7 @@ Lawrence: Evaluation, benchmarking.
 \begin{itemize}
     \item Week 1: Architecture design, coding
     \item Week 2: Coding
-    \item Week 3: Inference,  ablations, evaluation
+    \item Week 3: Inference, ablations, evaluation
     \item Week 4: Analysis, writeup
     \item Week 5: Prepare Presentation
 \end{itemize}
