@@ -8,8 +8,7 @@ shift 2
 SEEDS=("$@")
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
-export PYTHONPATH=src
 for s in "${SEEDS[@]}"; do
   echo "=== seed $s ==="
-  python -m actdyn.train --config "$CFG" --dataset "$DATA" --seed "$s" --out-dir "runs/$(basename "$CFG" .yaml)_seed${s}"
+  uv run actdyn-train --config "$CFG" --dataset "$DATA" --seed "$s" --out-dir "runs/$(basename "$CFG" .yaml)_seed${s}"
 done

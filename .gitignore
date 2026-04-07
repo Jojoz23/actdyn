@@ -1,8 +1,25 @@
-.venv*
-.venv-rollout310/
+# --- Python / tooling ---
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments (never commit; recreate with uv/pip)
+.venv/
+.venv*/
+venv/
+env/
+.envrc
+
+# --- Project artifacts (large / machine-local; regenerate from scripts) ---
 runs/
 datasets/
-.mujoco/
 *.h5
 *.hdf5
+.mujoco/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/

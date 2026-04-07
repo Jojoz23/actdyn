@@ -32,6 +32,16 @@ if [[ ! -f "$TE_CFG" ]]; then
   exit 1
 fi
 
+if [[ -z "${UV_PROJECT_ENVIRONMENT:-}" ]]; then
+  if [[ -d "$ROOT_DIR/.venv-rollout" ]]; then
+    export UV_PROJECT_ENVIRONMENT="$ROOT_DIR/.venv-rollout"
+  else
+    echo "No UV_PROJECT_ENVIRONMENT set and $ROOT_DIR/.venv-rollout not found." >&2
+    echo "Create a rollout env first: uv venv .venv-rollout --python 3.13 && UV_PROJECT_ENVIRONMENT=.venv-rollout uv sync --extra rollout" >&2
+    exit 1
+  fi
+fi
+
 mkdir -p "$AB_DIR"
 
 run_case() {

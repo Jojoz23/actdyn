@@ -257,9 +257,17 @@ def main() -> None:
         action="store_true",
         help="ACT-style inference: use z=0 (overrides eval.sample_latent in the config).",
     )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="Override logging.out_dir so eval artifacts go with the checkpoint's run (e.g. runs/actdyn_can_learned).",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
+    if args.out_dir:
+        config.setdefault("logging", {})
+        config["logging"]["out_dir"] = os.path.expanduser(args.out_dir)
     if args.no_sample_latent:
         config.setdefault("eval", {})
         config["eval"]["sample_latent"] = False

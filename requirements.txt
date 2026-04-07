@@ -1,0 +1,10 @@
+# actdyn — CSC415 project
+#
+# Recommended: use `uv` (see README.md):
+#   uv sync
+#   uv venv .venv-rollout --python 3.13
+#   UV_PROJECT_ENVIRONMENT=.venv-rollout uv sync --extra rollout
+#
+# Pip-only fallback (editable install + RoboMimic rollouts). Requires Python 3.10–3.14
+# per pyproject.toml; MuJoCo wheels typically need 3.10–3.13 for rollout.
+-e .[rollout]

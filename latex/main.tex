@@ -8,6 +8,7 @@
 \usepackage{amssymb}
 \usepackage{hyperref}
 \usepackage{booktabs}
+\usepackage{float}
 % \usepackage[parfill]{parskip}
 
 % Replace ICLR camera-ready publication banner with course-project notice.
@@ -24,6 +25,8 @@
 \begin{document}
 
 \maketitle
+% Override ICLR running header text for course-project submission.
+\lhead{CSC415 course project report}
 
 \begin{abstract}
 We study adaptive execution for transformer-based action chunking in long-horizon robotic manipulation. The policy is trained with offline imitation from demonstrations; our focus is how chunks are \emph{executed} at inference time. We compare fixed execute-all and receding-horizon execution against rule-based dynamic commits (overlap disagreement, action-change magnitude, stochastic dispersion) and an optional learned commit head trained with auxiliary labels from expert action smoothness. We evaluate on RoboMimic Lift, Can, and Square with low-dimensional state, reporting success, return, commit-length statistics, replans, policy-query cost, and optional observation noise, alongside single-step and discrete-token imitation baselines implemented in the same codebase.
@@ -43,7 +46,7 @@ Long-horizon robotic manipulation benefits from temporal abstraction, but polici
 \section{Related Work}
 \subsection{Transformer-based Sequence Modeling}
 
-This method reframes RL as a sequence modeling problem using sequences of tokens to represent state, action and reward, and uses Transformers and self-attention to capture long range dependency between those tokens.
+Sequence-modeling approaches reframe RL as token prediction over trajectories, using Transformers and self-attention to capture long-range dependencies among states, actions, and returns.
 
 Decision Transformer \cite{chen2021decisiontransformerreinforcementlearning} is the first proposal in this direction, and models RL as conditional sequence prediction. It models trajectories autoregressively and uses a causal Transformer to condition on past states, actions, and one desired return.
 
@@ -76,7 +79,10 @@ Most action-chunking policies use a fixed chunk length (e.g., $k \approx 100$), 
 
 \subsection{Method}
 
-We extend a Transformer chunk policy that predicts an action chunk $(a_t,\dots,a_{t+k_{\max}-1})$ (with $k_{\max}$ as a maximum bound). At inference time, we maintain an action queue of already-committed actions and decide the next commit length (how many actions to keep executing before replanning) using inference-time triggers. Crucially, \emph{this commit-length decision does not require ground-truth labels}: we use discrepancy measures between overlapping action predictions to detect inconsistent chunk boundary behavior.
+\paragraph{Policy backbone (ACT-aligned chunk model).}
+Our \emph{training} target is the same object as Action Chunking with Transformers \cite{zhao2023}: a Transformer-based policy that outputs a length-$k_{\max}$ sequence of continuous actions from a state observation. We implement this as a \textbf{conditional VAE} over chunks (latent $z$, prior/posterior, reconstruction loss, KL) with observation encoder and action decoder, matching the spirit of ACT-style chunking in low-dimensional RoboMimic. We do \emph{not} claim a new backbone architecture; \textbf{our contribution is inference-time execution}---how predicted chunks are committed, queued, preempted, or blended---holding the trained weights fixed while varying execution modes.
+
+We extend this chunk policy so that at rollout it predicts an action chunk $(a_t,\dots,a_{t+k_{\max}-1})$ (with $k_{\max}$ as a maximum bound). At inference time, we maintain an action queue of already-committed actions and decide the next commit length (how many actions to keep executing before replanning) using inference-time triggers. Crucially, \emph{this commit-length decision does not require ground-truth labels}: we use discrepancy measures between overlapping action predictions to detect inconsistent chunk boundary behavior.
 
 \paragraph{Execution-time state and action queue.}
 Our executor keeps a FIFO queue of planned actions. When the queue is empty, it plans a new deterministic action chunk from the current observation and chooses an initial commit length based on the evaluation mode (execute-all, receding-horizon, or a dynamic rule).
@@ -96,21 +102,38 @@ In this ablation, the commit length is decided when planning a new chunk: we com
 Similarly, we plan a chunk but generate $S$ stochastic chunk samples and compute per-step dispersion. We then choose the longest prefix whose dispersion stays below an uncertainty threshold $\epsilon$.
 
 \paragraph{Learned commit head (auxiliary objective).}
-We optionally train a linear classifier on top of the observation encoder to predict a discrete commit class, supervised by the same longest-prefix rule applied to \emph{expert} actions in the dataset (expert action-change magnitude). At inference, mode \texttt{learned\_commit} queries this head once per replan to choose $\hat{m}\in[k_{\min},k_{\max}]$.
+We optionally train a linear classifier on top of the observation encoder to predict a discrete commit class, supervised by the same longest-prefix rule applied to \emph{expert} actions in the dataset (expert action-change magnitude). At inference, the learned-commit mode queries this head once per replan to choose $\hat{m}\in[k_{\min},k_{\max}]$.
 
 \paragraph{ACT-style temporal ensembling baseline.}
-In addition to queue-based execution, we implement an ACT-style temporal ensembling mode (\texttt{temporal\_ensemble}): at every timestep, the policy predicts a full chunk and deposits each predicted action into a per-timestep bin; the executed action is an exponentially weighted blend over all overlapping predictions for that timestep (older predictions weighted by $\exp(-m i)$, with $m$ configurable in eval). This serves as an ACT-aligned comparator to our adaptive queue/preemption method.
+In addition to queue-based execution, we implement an ACT-style temporal ensembling mode: at every timestep, the policy predicts a full chunk and deposits each predicted action into a per-timestep bin; the executed action is an exponentially weighted blend over all overlapping predictions for that timestep (older predictions weighted by $\exp(-m i)$, with $m$ configurable in evaluation). This serves as an ACT-aligned comparator to our adaptive queue/preemption method.
 
 \paragraph{Train--deploy alignment for chunk CVAE.}
-The chunk CVAE is trained with two reconstruction paths: (i) the standard posterior path using $q(z \mid o, a)$, and (ii) a deployment path using only prior-latent decoding (no future-action encoder input), weighted by \texttt{deploy\_loss\_weight}. We also align train and rollout action spaces by applying the same output squashing (\texttt{tanh}) in reconstruction and inference. Offline evaluation reports both teacher-path loss and prior-$z{=}0$ action loss (\texttt{loss\_action\_prior\_z0}) to better predict rollout behavior.
+The chunk CVAE is trained with two reconstruction paths: (i) the standard posterior path using $q(z \mid o, a)$, and (ii) a deployment path using only prior-latent decoding (no future-action encoder input), weighted by a deployment-loss coefficient. We also align train and rollout action spaces by applying the same output squashing in reconstruction and inference. Offline evaluation reports both teacher-path loss and prior-$z{=}0$ action loss to better predict rollout behavior.
 
-Thresholds $(\tau,\delta,\epsilon,w)$ and $k_{\max}$ are set in versioned YAML configs (e.g., \texttt{configs/lift\_lowdim.yaml}) for reproducibility.
+Thresholds $(\tau,\delta,\epsilon,w)$ and $k_{\max}$ are set in versioned experiment configurations for reproducibility.
 
+\subsubsection{Overlap disagreement: score, preemption, and next commit length}
+Let $c\in\mathbb{R}^{K\times A}$ be a candidate chunk and $q\in\mathbb{R}^{L\times A}$ the remaining FIFO queue (each row is one continuous action vector; $A$ is the action dimension). With overlap window $w$,
+\[
+m=\min\bigl(w,\,K,\,L\bigr),
+\qquad
+\text{score}=\frac{1}{m}\sum_{i=0}^{m-1}\bigl\|c_i-q_i\bigr\|_2 .
+\]
+If $\text{score}>\tau$, the executor \emph{preempts}: it replaces the queue with a \emph{prefix} of $c$ whose length $\hat{K}\in[k_{\min},k_{\max}]$ is computed from $\text{score}/\tau$ (ratio capped at $4$), linearly interpolating between $k_{\max}$ (small violation) and $k_{\min}$ (large violation), then clamping. If $\text{score}\le\tau$, no preempt occurs; the next environment step executes the first queued action from the FIFO queue. Initial planning under the overlap-disagreement policy loads $k_{\max}$ steps from the first chunk when the queue is empty.
 
+\subsubsection{Decide-at-start heuristics (ablations)}
+\paragraph{Action-change magnitude.} From a single deterministic chunk, form per-step magnitudes $\|a_{i}-a_{i-1}\|_2$; the commit length is the longest prefix before a step exceeds $\delta$ (then clamped to $[k_{\min},k_{\max}]$).
+\paragraph{Stochastic uncertainty.} Draw $S$ stochastic chunks for the same observation; at each future step compute, per action coordinate, the standard deviation across the $S$ samples, then take an $\ell_2$ norm across coordinates to obtain one dispersion scalar per step. The commit length is the longest prefix whose dispersion stays below $\epsilon$; the actions enqueued are the matching prefix of the \emph{deterministic} chunk (samples are used only to choose the length).
+
+\subsubsection{Dataset, training, and rollout evaluation}
+\paragraph{Dataset.} We train from RoboMimic HDF5 demonstrations: each timestep stores low-dimensional observations and a continuous action vector. Lift, Can, and Square use \emph{separate} datasets and checkpoints (no multi-task mixing).
+\paragraph{Training and offline validation.} Training is behavioral cloning: predict expert action chunks (or single actions for baselines) from normalized observations. Validation measures imitation loss on held-out demo timesteps; it does not use simulator rewards.
+\paragraph{Rollouts.} Evaluation constructs a robosuite environment from metadata embedded in the dataset. For each execution mode, we run $20$ episodes by default; success rate is the fraction of episodes marked successful, and average return is the mean undiscounted sum of per-step rewards. Rewards are \emph{not} normalized by our code and are only comparable \emph{within} a task. Latent usage at rollout (sampled latent versus deterministic $z$) is selected per evaluation job, while execution mode is swept within that job.
+\paragraph{Execution accounting.} Policy queries count forward passes through the policy (including batched stochastic forwards in uncertainty-based modes). Replans count executor plan refreshes (for example when preemption is triggered or the queue becomes empty), not every query. Commit statistics are computed from realized commit events during rollout; table entries such as \emph{Commit mean} report the mean realized commit length over those events.
 
 \subsection{Baselines and comparators}
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{@{}llp{6.2cm}@{}}
@@ -118,59 +141,69 @@ Thresholds $(\tau,\delta,\epsilon,w)$ and $k_{\max}$ are set in versioned YAML c
 Name & Role & Method summary \\
 \midrule
 BC-MLP & Single-step BC & Feedforward behavioral cloning baseline that predicts one action at a time from the current low-dimensional state. \\
-ACT & Chunk transformer policy & Transformer chunking policy that predicts multi-step action sequences; execution mode (\texttt{full\_chunk}, \texttt{receding\_horizon}, \texttt{dynamic}, \texttt{temporal\_ensemble}) is the main variable. \\
+ACT & Chunk transformer policy & Transformer chunking policy that predicts multi-step action sequences; execution mode (full chunk, receding horizon, dynamic, or temporal ensembling) is the main variable. \\
 kNN-BC (VINN-style) & Nonparametric imitation & Observation-space nearest-neighbor action retrieval baseline (VINN-style lightweight variant). \\
 BeT-style & Discrete behavior model & Discretized-action imitation baseline using behavior tokenization with a classifier over action bins. \\
-RT-1 & Visuomotor sequence model & Not reimplemented in this project; included as related work only. \\
 \bottomrule
 \end{tabular}
 \caption{Baselines and comparators used in this report, described at the method level (without implementation-specific config details).}
 \label{tab:baselines}
 \end{table}
 
-\noindent We evaluate BC-MLP, kNN-BC, BeT-style, and ACT variants under a shared simulator/metric protocol. RT-1 is discussed as related work but is out of scope for direct reruns in this state-only pipeline.
+\noindent We evaluate BC-MLP, kNN-BC, BeT-style, and ACT variants under a shared simulator/metric protocol.
 
 \subsection{Experiments}
 
 We evaluate on \textbf{RoboMimic Lift, Can, and Square} with \textbf{low-dimensional observations}. We report episode success, return, horizon length, realized commit-length summaries ($\mathbb{E}[m]$, etc.), \textbf{replans per episode}, and \textbf{policy forward-query counts} (chunk forwards, stochastic multi-samples, and learned head forwards where applicable). Offline metrics include validation imitation loss (and commit CE when trained).
 
-\textbf{Execution modes} for the chunk policy: \texttt{full\_chunk}, \texttt{receding\_horizon}, \texttt{dynamic} (with selectable rules in config), \texttt{temporal\_ensemble} (ACT-style overlap averaging), and \texttt{learned\_commit} when the auxiliary head is trained. Single-step baselines (BC-MLP, kNN, BeT-style) are evaluated with \texttt{receding\_horizon} so the policy class matches one-step execution.
+\textbf{Execution modes} for the chunk policy are full-chunk execution, receding-horizon execution, dynamic execution (with selectable rules), temporal ensembling, and learned-commit execution when the auxiliary head is trained. Single-step baselines (BC-MLP, kNN, BeT-style) are evaluated with receding-horizon execution so the policy class matches one-step control.
 
-\textbf{Robustness.} Config field \texttt{eval.obs\_noise\_std} adds Gaussian noise to the normalized observation vector at rollout time. We do not yet simulate object pose resets mid-episode.
+\textbf{Robustness.} We optionally add Gaussian noise to the normalized observation vector at rollout time. We do not yet simulate object pose resets mid-episode.
 
-\textbf{Seeds.} Training supports \texttt{--seed} and \texttt{--out-dir}; \texttt{scripts/train\_seeds.sh} loops multiple seeds. Reporting mean$\pm$std across seeds is recommended when time permits.
+\textbf{Seeds.} We fix Python/NumPy/Torch random seeds for reproducibility (default seed $42$) and retrain with multiple seeds (e.g.\ $0,1,2$) into separate run directories. Multi-seed summaries are reported for Lift, Can, and Square (Appendix Table~\ref{tab:seed_all_tasks}).
 
 \section{Final Results}
 
-Table~\ref{tab:act_main_cross_task} summarizes ACT-Strong execution-mode outcomes on each task (using the z0 default-mode snapshots for Can/Square and finalized Lift eval). Lift supports our adaptive execution hypothesis strongly. Can is mixed: dynamic under z0 is weaker than temporal ensemble/full chunk, while sampled-latent ablations show dynamic can recover substantially. Square is difficult for all ACT modes under this setup.
+Table~\ref{tab:act_main_cross_task} lists all four primary execution modes for each task under deterministic latent decoding. Numbers are mean success rate and return over $20$ episodes per mode, with mean policy queries, replans, and realized commit statistics from the same logs. Returns are task-specific simulator rewards and are compared within each task (not averaged across tasks). Learned-commit rollouts use checkpoints trained with the auxiliary commit head; Table~\ref{tab:learned_commit} in the appendix reports those results. Lift learned offline metrics are: total loss $\approx 0.850$, action loss $\approx 0.222$, KL $\approx 6.16$, commit CE $\approx 1.232$, and prior-z0 action loss $\approx 0.442$.
 
-\begin{table}[t]
+Lift supports adaptive overlap execution at full success with fewer replans than receding horizon. Can shows strong temporal ensembling and full-chunk performance under z0, while dynamic overlap underperforms in this snapshot (sampled-latent ablations partially recover dynamic; see artifact folders). Square remains difficult across modes; receding horizon achieves slightly higher success than dynamic in this z0 table.
+Learned-commit results show mixed transfer across tasks: Lift remains highly successful but with very short realized commits on average, Can attains moderate success with slightly longer commits, and Square remains difficult despite frequent replanning.
+
+\begin{table}[H]
 \centering
 \small
-\begin{tabular}{@{}lccccc@{}}
+\begin{tabular}{@{}llccccc@{}}
 \toprule
-Task / ACT mode & Success $\uparrow$ & Return $\uparrow$ & Policy queries & Replans/ep $\downarrow$ & Commit mean \\
+Task & Mode & Success $\uparrow$ & Return $\uparrow$ & Queries $\downarrow$ & Repl./ep $\downarrow$ & Commit mean \\
 \midrule
-Lift dynamic & 1.00 & 60.00 & 400.0 & 86.65 & 4.56 \\
-Lift temporal ensemble & 1.00 & 76.10 & 400.0 & 0.00 & -- \\
-Can dynamic (z0) & 0.50 & 144.90 & 400.0 & 217.60 & 1.83 \\
-Can temporal ensemble (z0) & 1.00 & 289.15 & 400.0 & 0.00 & -- \\
-Square dynamic (z0) & 0.15 & 42.05 & 400.0 & 184.20 & 2.16 \\
-Square receding horizon (z0) & 0.20 & 41.70 & 400.0 & 399.00 & 1.00 \\
+Lift & Temporal ens. & 1.00 & 76.10 & 400.0 & 0.00 & -- \\
+Lift & Full chunk & 0.95 & 74.45 & 25.0 & 24.0 & 16.0 \\
+Lift & Receding & 0.95 & 58.15 & 400.0 & 399.0 & 1.00 \\
+Lift & Dynamic (overlap) & 1.00 & 60.00 & 400.0 & 86.65 & 4.56 \\
+\midrule
+Can & Temporal ens. & 1.00 & 289.15 & 400.0 & 0.00 & -- \\
+Can & Full chunk & 1.00 & 268.15 & 25.0 & 24.0 & 16.0 \\
+Can & Receding & 0.50 & 142.30 & 400.0 & 399.0 & 1.00 \\
+Can & Dynamic (overlap) & 0.50 & 144.90 & 400.0 & 217.60 & 1.83 \\
+\midrule
+Square & Temporal ens. & 0.15 & 33.55 & 400.0 & 0.00 & -- \\
+Square & Full chunk & 0.15 & 37.75 & 25.0 & 24.0 & 16.0 \\
+Square & Receding & 0.20 & 41.70 & 400.0 & 399.0 & 1.00 \\
+Square & Dynamic (overlap) & 0.15 & 42.05 & 400.0 & 184.20 & 2.16 \\
 \bottomrule
 \end{tabular}
-\caption{Cross-task ACT-Strong outcomes from finalized run artifacts.}
+\caption{ACT-Strong chunk policy across primary execution modes, with z0 rollout decoding and $20$ episodes per cell. Returns are task-specific simulator rewards and are not cross-task comparable.}
 \label{tab:act_main_cross_task}
 \end{table}
 
 Table~\ref{tab:baseline_cross_task} reports one-step baseline results (receding-horizon eval for all baselines). Baselines are competitive on Lift, mixed on Can, and generally weak on Square, consistent with increased task difficulty in this low-dimensional setting.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{@{}lccccc@{}}
 \toprule
-Task / baseline (receding) & Success $\uparrow$ & Return $\uparrow$ & Policy queries & Replans/ep $\downarrow$ & Commit mean \\
+Task / baseline (receding) & Success $\uparrow$ & Return $\uparrow$ & Queries $\downarrow$ & Replans/ep $\downarrow$ & Commit mean \\
 \midrule
 Lift BC-MLP & 0.65 & 70.70 & 400.0 & 399.0 & 1.00 \\
 Lift kNN-BC & 0.75 & 44.40 & 400.0 & 399.0 & 1.00 \\
@@ -187,18 +220,19 @@ Square BeT-style & 0.05 & 5.60 & 400.0 & 399.0 & 1.00 \\
 \label{tab:baseline_cross_task}
 \end{table}
 
-Across Lift multi-seed ACT-Strong runs (seeds 0/1/2), success remains $1.00 \pm 0.00$ (mean $\pm$ std). For Can and Square, multi-seed summaries are available in task seed folders and are consistent with the single-run trend: Can is mixed and sensitive to execution/latent settings, while Square remains challenging for all tested policies in this configuration.
+Across Lift multi-seed ACT-Strong runs (seeds 0/1/2), success remains $1.00 \pm 0.00$ (mean $\pm$ std). Can remains mixed and sensitive to execution/latent settings, while Square remains challenging for all tested policies in this configuration.
+Additional all-task sampled-latent ablation snapshots and multi-seed aggregates for all modes are reported in Appendix Tables~\ref{tab:abl_sampled_all_tasks} and~\ref{tab:seed_all_tasks}.
 
 
 \section{Discussion}
 \paragraph{Hypothesis outcome.} Our central hypothesis is \emph{partially supported}. Adaptive execution is strongly supported on Lift, where dynamic commits match top success while reducing replans relative to receding horizon. On Can, behavior is mixed and sensitive to rollout setting (notably z0 versus sampled-latent ablations). On Square, all methods in our low-dimensional setup remain weak, indicating task difficulty dominates any single execution-rule choice under current training/data conditions.
 
-\paragraph{Limitations.} Rollout evaluation requires the optional RoboMimic/MuJoCo stack (we use a separate Python~3.10 environment in practice). Lift success can be dominated by imitation quality; execution-mode differences can appear in commit statistics even when success is low. RT-1, full VINN, and full BeT are not reproduced at original scale.
+\paragraph{Limitations.} Rollout evaluation requires the optional RoboMimic/MuJoCo stack (we use a separate rollout environment in practice, with Python version depending on MuJoCo compatibility). Lift success can be dominated by imitation quality; execution-mode differences can appear in commit statistics even when success is low. Large-scale vision-language imitation systems and full-scale VINN/BeT reproductions are outside this project scope.
 
 \paragraph{Failure modes.} If disagreement/uncertainty thresholds are miscalibrated, the policy may replan too frequently (hurting stability) or too late (reducing reactivity). Threshold sweeps are supported by editing YAML and re-running evaluation.
 
 \section{Conclusion}
-We implemented inference-time adaptive commit-length execution for an ACT-style chunk policy, with heuristic rules, an optional learned commit head, imitation baselines (MLP BC, kNN, discrete-token BC), and shared rollout instrumentation. Final cross-task results support the proposal strongly on Lift, show mixed behavior on Can (including strong sampled-latent dynamic ablations), and reveal that Square is substantially harder under this low-dimensional setup. RT-1-scale models remain contextual citations rather than rerun baselines in this pipeline.
+We implemented inference-time adaptive commit-length execution for an ACT-style chunk policy, with heuristic rules, an optional learned commit head, imitation baselines (MLP BC, kNN, discrete-token BC), and shared rollout instrumentation. Final cross-task results support the proposal strongly on Lift, show mixed behavior on Can (including strong sampled-latent dynamic ablations), and reveal that Square is substantially harder under this low-dimensional setup.
 
 \section{Team Contributions}
 In equal parts: Coding, Training, Inference. 
@@ -216,6 +250,81 @@ Lawrence: Evaluation, benchmarking.
 
 
 \appendix
+
+\section{Ablation and seed summaries}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}llcc@{}}
+\toprule
+Task & Mode (sampled latent) & Success $\uparrow$ & Return $\uparrow$ \\
+\midrule
+Lift & Temporal ens. & 1.00 & 79.05 \\
+Lift & Full chunk & 1.00 & 81.45 \\
+Lift & Receding & 1.00 & 64.95 \\
+Lift & Dynamic (overlap) & 1.00 & 63.80 \\
+\midrule
+Can & Temporal ens. & 1.00 & 289.75 \\
+Can & Full chunk & 0.95 & 254.25 \\
+Can & Receding & 0.80 & 230.60 \\
+Can & Dynamic (overlap) & 0.95 & 274.90 \\
+\midrule
+Square & Temporal ens. & 0.45 & 118.00 \\
+Square & Full chunk & 0.35 & 78.45 \\
+Square & Receding & 0.25 & 50.90 \\
+Square & Dynamic (overlap) & 0.30 & 70.95 \\
+\bottomrule
+\end{tabular}
+\caption{All-task sampled-latent ablation snapshot for primary ACT modes ($20$ episodes per cell).}
+\label{tab:abl_sampled_all_tasks}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}llcc@{}}
+\toprule
+Task & Mode (3 seeds) & Success mean $\pm$ std & Return mean $\pm$ std \\
+\midrule
+Lift & Temporal ens. & 1.00 $\pm$ 0.00 & 225.35 $\pm$ 132.33 \\
+Lift & Full chunk & 1.00 $\pm$ 0.00 & 208.83 $\pm$ 132.88 \\
+Lift & Receding & 1.00 $\pm$ 0.00 & 177.73 $\pm$ 126.67 \\
+Lift & Dynamic (overlap) & 1.00 $\pm$ 0.00 & 161.88 $\pm$ 130.14 \\
+\midrule
+Can & Temporal ens. & 0.97 $\pm$ 0.05 & 284.22 $\pm$ 16.50 \\
+Can & Full chunk & 0.90 $\pm$ 0.04 & 255.43 $\pm$ 11.97 \\
+Can & Receding & 0.50 $\pm$ 0.18 & 132.45 $\pm$ 45.63 \\
+Can & Dynamic (overlap) & 0.65 $\pm$ 0.18 & 186.67 $\pm$ 51.66 \\
+\midrule
+Square & Temporal ens. & 0.25 $\pm$ 0.08 & 64.98 $\pm$ 19.78 \\
+Square & Full chunk & 0.28 $\pm$ 0.13 & 73.80 $\pm$ 32.31 \\
+Square & Receding & 0.12 $\pm$ 0.09 & 21.53 $\pm$ 23.58 \\
+Square & Dynamic (overlap) & 0.15 $\pm$ 0.04 & 30.52 $\pm$ 15.33 \\
+\bottomrule
+\end{tabular}
+\caption{All-task multi-seed summary ($3$ seeds: 0/1/2) for primary ACT modes.}
+\label{tab:seed_all_tasks}
+\end{table}
+
+\section{Learned-commit appendix results}
+This appendix reports learned-commit rollout metrics for each task under deterministic latent decoding.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Task & Success $\uparrow$ & Return $\uparrow$ & Queries $\downarrow$ & Repl./ep $\downarrow$ & Commit mean \\
+\midrule
+Lift & 1.00 & 44.65 & 755.0 & 376.50 & 1.06 \\
+Can & 0.75 & 224.40 & 630.4 & 314.20 & 1.27 \\
+Square & 0.15 & 40.60 & 746.3 & 372.15 & 1.07 \\
+\bottomrule
+\end{tabular}
+\caption{Learned-commit results under z0 decoding, with $20$ episodes per task.}
+\label{tab:learned_commit}
+\end{table}
 
 \section{AI Usage Declaration}
 

@@ -1,6 +1,8 @@
 # actdyn (CSC415)
 
-Offline BC chunk policy (CVAE) + **inference-time** execution modes for RoboMimic low-dim (Lift).
+**Quick start, script table, and submission checklist:** see the repo root [`README.md`](../README.md).
+
+Offline BC chunk policy (CVAE) + **inference-time** execution modes for RoboMimic low-dim (Lift / Can / Square).
 
 ## Train (GPU, Python 3.14 via uv)
 
@@ -15,6 +17,15 @@ RoboMimic **Square** / **Can** low-dim PH: `configs/square_lowdim.yaml` and `con
 Options: `--seed N`, `--out-dir runs/my_run`.
 
 **Learned commit head** (proposal alignment): `configs/lift_lowdim_learned.yaml` — trains auxiliary head with expert-delta labels; eval includes `learned_commit`.
+
+**Safe learned-commit rollout (dataset must match task):** after training `runs/actdyn_{lift,can,square}_learned`, run:
+
+```bash
+chmod +x scripts/eval_learned_commit.sh
+./scripts/eval_learned_commit.sh lift   # or can / square
+```
+
+Do **not** point `--dataset` at the wrong task’s HDF5—the simulator is built from that path.
 
 **Multi-seed:** `./scripts/train_seeds.sh configs/lift_lowdim.yaml /path/to/low_dim_v15.hdf5 0 1 2`
 
