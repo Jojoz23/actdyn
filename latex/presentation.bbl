@@ -1,0 +1,31 @@
+\begin{thebibliography}{}
+
+\bibitem[Black et~al., 2025]{real_time_chunking}
+Black, K., Galliker, M.~Y., and Levine, S. (2025).
+\newblock Real-time action chunking with large models.
+
+\bibitem[Chen et~al., 2021]{chen2021decisiontransformerreinforcementlearning}
+Chen, L., Lu, K., Rajeswaran, A., Lee, K., Grover, A., Laskin, M., Abbeel, P., Srinivas, A., and Mordatch, I. (2021).
+\newblock Decision transformer: Reinforcement learning via sequence modeling.
+
+\bibitem[Janner et~al., 2021]{janner2021offlinereinforcementlearningbig}
+Janner, M., Li, Q., and Levine, S. (2021).
+\newblock Offline reinforcement learning as one big sequence modeling problem.
+
+\bibitem[Jing et~al., 2025]{mixtureofhorizons}
+Jing, D., Wang, G., Liu, J., Tang, W., Sun, Z., Yao, Y., Wei, Z., Liu, Y., Lu, Z., and Ding, M. (2025).
+\newblock Mixture of horizons in action chunking.
+
+\bibitem[Li et~al., 2025]{li2025reinforcementlearningactionchunking}
+Li, Q., Zhou, Z., and Levine, S. (2025).
+\newblock Reinforcement learning with action chunking.
+
+\bibitem[Liu et~al., 2024]{bidirect}
+Liu, Y., Hamid, J.~I., Xie, A., Lee, Y., Du, M., and Finn, C. (2024).
+\newblock Bidirectional decoding: Improving action chunking via guided test-time sampling.
+
+\bibitem[Zhao et~al., 2023]{zhao2023}
+Zhao, T.~Z., Kumar, V., Levine, S., and Finn, C. (2023).
+\newblock Learning fine-grained bimanual manipulation with low-cost hardware.
+
+\end{thebibliography}
