@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.10.24)  7 APR 2026 00:36
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.10.24)  7 APR 2026 00:46
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -424,40 +424,55 @@ LaTeX Font Info:    Trying to load font information for U+msb on input line 29.
 (c:/texlive/2025/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
+LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 4
+5.
+
+(c:/texlive/2025/texmf-dist/tex/latex/psnfss/ot1pcr.fd
+File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
+)
+Underfull \vbox (badness 1735) has occurred while \output is active []
+
+
 
 [1{c:/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{c:/texlive/202
 5/texmf-dist/fonts/enc/dvips/base/8r.enc}
 
 ]
+Underfull \vbox (badness 4872) has occurred while \output is active []
+
+
 
 [2]
 
 [3]
-Underfull \hbox (badness 1635) in paragraph at lines 146--147
+
+[4]
+Underfull \hbox (badness 1635) in paragraph at lines 148--149
 []\OT1/ptm/m/n/9 Feedforward be-hav-ioral cloning base-line that
  []
 
 
-Underfull \hbox (badness 1796) in paragraph at lines 147--148
+Underfull \hbox (badness 1796) in paragraph at lines 149--150
 \OT1/ptm/m/n/9 step ac-tion se-quences; ex-e-cu-tion mode (full
  []
 
 
-Underfull \hbox (badness 1708) in paragraph at lines 148--149
+Underfull \hbox (badness 1708) in paragraph at lines 150--151
 []\OT1/ptm/m/n/9 Observation-space nearest-neighbor ac-tion re-
  []
 
 
-
-[4]
 
 [5
 pdfTeX warning (ext4): destination with the same identifier (name{table.1}) has
  been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.176 
+l.175 
       ]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
 
 [6
 pdfTeX warning (ext4): destination with the same identifier (name{table.2}) has
@@ -473,20 +488,15 @@ pdfTeX warning (ext4): destination with the same identifier (name{table.3}) has
 l.236 
       ]
 LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 2
-53.
+55.
  (c:/texlive/2025/texmf-dist/tex/latex/psnfss/ts1ptm.fd
 File: ts1ptm.fd 2001/06/04 font definitions for TS1/ptm.
 )
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Underfull \vbox (badness 2980) has occurred while \output is active []
 
 
 
-[7]
-LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 3
-41.
- (c:/texlive/2025/texmf-dist/tex/latex/psnfss/ot1pcr.fd
-File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
-) (./main.bbl
+[7] (./main.bbl
 
 [8
 pdfTeX warning (ext4): destination with the same identifier (name{table.4}) has
@@ -523,7 +533,7 @@ Here is how much of TeX's memory you used:
  40116 multiletter control sequences out of 15000+600000
  654341 words of font info for 99 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 75i,11n,79p,807b,559s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,12n,79p,807b,559s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <c:/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><c:/tex
 live/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/texlive/2025
 /texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><c:/texlive/2025/texmf-dis
@@ -536,10 +546,10 @@ ive/2025/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb><c:/texlive/
 2025/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb><c:/texlive/2025/texmf-dist/
 fonts/type1/urw/times/utmb8a.pfb><c:/texlive/2025/texmf-dist/fonts/type1/urw/ti
 mes/utmr8a.pfb><c:/texlive/2025/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (9 pages, 185355 bytes).
+Output written on main.pdf (9 pages, 185638 bytes).
 PDF statistics:
- 294 PDF objects out of 1000 (max. 8388607)
- 252 compressed objects within 3 object streams
+ 296 PDF objects out of 1000 (max. 8388607)
+ 254 compressed objects within 3 object streams
  61 named destinations out of 1000 (max. 500000)
  153 words of extra memory for PDF output out of 10000 (max. 10000000)
 
