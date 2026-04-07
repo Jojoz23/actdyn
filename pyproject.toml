@@ -5,12 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "actdyn-prototype"
 version = "0.1.0"
-description = "Rapid ACT-style dynamic execution prototype for RoboMimic low-dimensional Lift experiments."
+description = "CSC415 project: ACT-style chunk policies with inference-time adaptive execution on RoboMimic low-dim Lift, Can, and Square."
 readme = "docs/README.md"
 requires-python = ">=3.10,<3.15"
 license = { text = "MIT" }
 authors = [
-  { name = "OpenAI ChatGPT" }
+  { name = "Zuhayr Ahmed" },
+  { name = "Charles Cheung" },
+  { name = "Lawrence Fu" },
 ]
 dependencies = [
     "torch>=2.7",
