@@ -13,7 +13,12 @@ env/
 .envrc
 
 # --- Project artifacts (large / machine-local; regenerate from scripts) ---
-runs/
+# Under runs/: ignore almost everything, but keep small eval summary JSONs
+# (rollout_summary.json + per-mode summary.json) for report verification.
+runs/**
+!runs/**/
+!runs/**/rollout_summary.json
+!runs/**/summary.json
 datasets/
 *.h5
 *.hdf5

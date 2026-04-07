@@ -1,0 +1,16 @@
+{
+  "mode": "temporal_ensemble",
+  "rule": "overlap_disagreement",
+  "num_episodes": 20,
+  "success_rate": 1.0,
+  "avg_return": 285.75,
+  "avg_length": 400.0,
+  "avg_policy_queries": 400.0,
+  "avg_replans_per_episode": 0.0,
+  "obs_noise_std": 0.0,
+  "commit_count": 0,
+  "commit_k_mean": NaN,
+  "commit_k_std": NaN,
+  "commit_k_min": NaN,
+  "commit_k_max": NaN
+}

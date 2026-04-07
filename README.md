@@ -60,6 +60,11 @@ More detail, Can/Square configs, and troubleshooting: **[`docs/README.md`](docs/
 |------|------|
 | [`pyproject.toml`](pyproject.toml) | Canonical deps + `[rollout]` optional group (robomimic / robosuite). |
 | [`requirements.txt`](requirements.txt) | Course-style `pip install -r requirements.txt` → editable install with `[rollout]`. Prefer `uv` if possible. |
+| [`uv.lock`](uv.lock) | Locked dependency versions for `uv sync` (reproducible installs). |
+
+Under `runs/`, only small eval **summary JSON** files are tracked (`rollout_summary.json`, per-mode `summary.json`, including learned-commit). Checkpoints, logs, and the rest of `runs/` stay gitignored.
+
+Reproduce environments with **`uv sync`** (and the rollout venv in Quick start)—do **not** commit `.venv` / `.venv-rollout`; they are machine-local.
 
 ## Scripts (`scripts/`)
 

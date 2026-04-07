@@ -1,0 +1,16 @@
+{
+  "mode": "dynamic",
+  "rule": "overlap_disagreement",
+  "num_episodes": 20,
+  "success_rate": 0.1,
+  "avg_return": 29.9,
+  "avg_length": 400.0,
+  "avg_policy_queries": 400.0,
+  "avg_replans_per_episode": 159.8,
+  "obs_noise_std": 0.0,
+  "commit_count": 3216,
+  "commit_k_mean": 2.4875621795654297,
+  "commit_k_std": 2.1522796154022217,
+  "commit_k_min": 1.0,
+  "commit_k_max": 16.0
+}

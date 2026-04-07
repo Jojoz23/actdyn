@@ -1,0 +1,16 @@
+{
+  "mode": "receding_horizon",
+  "rule": "overlap_disagreement",
+  "num_episodes": 20,
+  "success_rate": 0.3,
+  "avg_return": 33.75,
+  "avg_length": 400.0,
+  "avg_policy_queries": 400.0,
+  "avg_replans_per_episode": 399.0,
+  "obs_noise_std": 0.0,
+  "commit_count": 8000,
+  "commit_k_mean": 1.0,
+  "commit_k_std": 0.0,
+  "commit_k_min": 1.0,
+  "commit_k_max": 1.0
+}

@@ -1,0 +1,16 @@
+{
+  "mode": "learned_commit",
+  "rule": "learned_commit",
+  "num_episodes": 20,
+  "success_rate": 0.75,
+  "avg_return": 224.4,
+  "avg_length": 400.0,
+  "avg_policy_queries": 630.4,
+  "avg_replans_per_episode": 314.2,
+  "obs_noise_std": 0.0,
+  "commit_count": 6304,
+  "commit_k_mean": 1.2690355777740479,
+  "commit_k_std": 1.9866193532943726,
+  "commit_k_min": 1.0,
+  "commit_k_max": 16.0
+}

@@ -1,0 +1,88 @@
+{
+  "env_meta": {
+    "env_name": "PickPlaceCan",
+    "env_version": "1.5.1",
+    "type": 1,
+    "env_kwargs": {
+      "has_renderer": false,
+      "has_offscreen_renderer": false,
+      "ignore_done": true,
+      "use_object_obs": true,
+      "use_camera_obs": false,
+      "control_freq": 20,
+      "controller_configs": {
+        "type": "BASIC",
+        "body_parts": {
+          "right": {
+            "type": "OSC_POSE",
+            "input_max": 1,
+            "input_min": -1,
+            "output_max": [
+              0.05,
+              0.05,
+              0.05,
+              0.5,
+              0.5,
+              0.5
+            ],
+            "output_min": [
+              -0.05,
+              -0.05,
+              -0.05,
+              -0.5,
+              -0.5,
+              -0.5
+            ],
+            "kp": 150,
+            "damping": 1,
+            "impedance_mode": "fixed",
+            "kp_limits": [
+              0,
+              300
+            ],
+            "damping_limits": [
+              0,
+              10
+            ],
+            "position_limits": null,
+            "orientation_limits": null,
+            "uncouple_pos_ori": true,
+            "control_delta": true,
+            "interpolation": null,
+            "ramp_ratio": 0.2,
+            "input_ref_frame": "world",
+            "gripper": {
+              "type": "GRIP"
+            }
+          }
+        }
+      },
+      "robots": [
+        "Panda"
+      ],
+      "camera_depths": false,
+      "camera_heights": 84,
+      "camera_widths": 84,
+      "lite_physics": false,
+      "reward_shaping": false
+    }
+  },
+  "modes": {
+    "temporal_ensemble": {
+      "mode": "temporal_ensemble",
+      "rule": "overlap_disagreement",
+      "num_episodes": 20,
+      "success_rate": 1.0,
+      "avg_return": 289.15,
+      "avg_length": 400.0,
+      "avg_policy_queries": 400.0,
+      "avg_replans_per_episode": 0.0,
+      "obs_noise_std": 0.0,
+      "commit_count": 0,
+      "commit_k_mean": NaN,
+      "commit_k_std": NaN,
+      "commit_k_min": NaN,
+      "commit_k_max": NaN
+    }
+  }
+}
