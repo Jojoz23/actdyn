@@ -9,6 +9,8 @@
 \usepackage{hyperref}
 \usepackage{booktabs}
 \usepackage{float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 % \usepackage[parfill]{parskip}
 
 % Replace ICLR camera-ready publication banner with course-project notice.
@@ -29,18 +31,20 @@
 \lhead{CSC415 course project report}
 
 \begin{abstract}
-We study adaptive execution for transformer-based action chunking in long-horizon robotic manipulation. The policy is trained with offline imitation from demonstrations; our focus is how chunks are \emph{executed} at inference time. We compare fixed execute-all and receding-horizon execution against rule-based dynamic commits (overlap disagreement, action-change magnitude, stochastic dispersion) and an optional learned commit head trained with auxiliary labels from expert action smoothness. We evaluate on RoboMimic Lift, Can, and Square with low-dimensional state, reporting success, return, commit-length statistics, replans, policy-query cost, and optional observation noise, alongside single-step and discrete-token imitation baselines under the same evaluation setup.
+Action chunking improves long-horizon control, but fixed chunk execution can react too slowly near contact events and can introduce boundary inconsistency. We train an ACT-style chunk policy with offline imitation and focus on an inference-time execution layer that decides when to replan. We compare fixed execute-all and receding-horizon execution against adaptive overlap-disagreement commits, plus decide-at-start and learned-commit variants, on RoboMimic Lift, Can, and Square with low-dimensional observations. On Lift, dynamic overlap reaches 1.00 success while reducing replans per episode from 399.0 (receding) to 86.65; Can is mixed and Square remains challenging, showing where adaptive execution helps and where stronger policy learning is still needed.
 \end{abstract}
 
 \section{Introduction}
 
 Long-horizon robotic manipulation benefits from temporal abstraction, but policies must remain reactive near contact-rich decision points (e.g., grasping/insertion). Transformer-based action chunking predicts $k$ future actions to reduce decision frequency and compounding error, but most methods use a fixed $k$ (e.g., $k \approx 100$), which can reduce reactivity and introduce boundary instability. In particular, chunk switches can cause discontinuities or chunk-boundary inconsistency/jitter in real-time execution \cite{real_time_chunking,bidirect}.
 
-\textbf{RL framing.} We fit the chunking policy from a \emph{fixed offline dataset} of expert trajectories (imitation / behavioral cloning), then evaluate it in the same way as episodic RL in simulation: rollout return, success, and trajectory statistics. The environment remains a standard finite-horizon control problem; our contribution is the execution-time rule on top of the learned policy.
+\textbf{Motivation for disagreement-based execution.} Prior work shows overlap consistency is important when chunk predictions are refreshed under real-time constraints \cite{real_time_chunking}. In our setting, this suggests a simple operational test: if the newly predicted overlap disagrees with the queued overlap, continuing to commit the old queue is likely harmful. We therefore use overlap disagreement as a trigger to preempt and replan, while leaving the trained policy weights unchanged.
+
+\textbf{Imitation training, RL-style evaluation.} We fit the chunking policy from a \emph{fixed offline dataset} of expert trajectories (behavioral cloning), then evaluate with RL-style rollout metrics in simulation: return, success, and trajectory statistics. The environment remains a standard finite-horizon control problem; our contribution is the execution-time rule on top of the learned policy.
 
 \textbf{Objectives.} We (1) implement adaptive commit-length execution using inference-time disagreement/uncertainty triggers and optional learned $\hat{m}$, (2) compare dynamic execution against execute-all, receding-horizon, and ACT-style temporal ensembling on the \emph{same} trained chunk policy, and (3) report rollout metrics plus optional Gaussian observation noise and multi-seed retraining for robustness.
 
-\textbf{Scope.} We use \textbf{RoboMimic} with \textbf{low-dimensional state} on \textbf{Lift}, \textbf{Can}, and \textbf{Square}. All three tasks are run under a shared ACT-Strong protocol and matched baseline evaluation pipeline.
+\textbf{Scope.} We use RoboMimic with low-dimensional state on Lift, Can, and Square. All three tasks are run under a shared ACT-Strong protocol and matched baseline evaluation pipeline.
 
 \noindent\textbf{Code.} Implementation and reproduction instructions are available at \url{https://github.com/Jojoz23/actdyn}.
 
@@ -69,7 +73,7 @@ Bidirectional Decoding: Improving Action Chunking via Guided Test-Time Sampling 
 
 Mixture of Horizons in Action Chunking \cite{mixtureofhorizons} proposes a new strategy splitting the action chunk into multiple segments with different horizons, providing both benefits of better long-term planning from longer horizons and increased precision of shorter horizons. 
 
-These papers show that Action Chunking significantly improves long horizon performance, particularly for environments with sparse rewards or with compounding error from sequential decision making. Nevertheless, many approaches still rely on a fixed horizon $k$ and/or on smoothing strategies (e.g., temporal ensembling) to deal with chunk boundaries, which can reduce reactivity or lead to boundary discontinuities when switching occurs in real time \cite{real_time_chunking}.
+These papers show that Action Chunking significantly improves long-horizon performance, particularly for environments with sparse rewards or with compounding error from sequential decision making. Nevertheless, many approaches still rely on a fixed horizon $k$ and/or on smoothing strategies (e.g., temporal ensembling) to deal with chunk boundaries, which can reduce reactivity or lead to boundary discontinuities when switching occurs in real time \cite{real_time_chunking}.
 
 
 \subsection{Our Work}
@@ -85,10 +89,10 @@ Relative to these lines, our prototype is closest in spirit to latency-aware ove
 \paragraph{Policy backbone (ACT-aligned chunk model).}
 Our \emph{training} target is the same object as Action Chunking with Transformers \cite{zhao2023}: a Transformer-based policy that outputs a length-$k_{\max}$ sequence of continuous actions from a state observation. We implement this as a \textbf{conditional VAE} over chunks (latent $z$, prior/posterior, reconstruction loss, KL) with observation encoder and action decoder, matching the spirit of ACT-style chunking in low-dimensional RoboMimic. We do \emph{not} claim a new backbone architecture; \textbf{our contribution is inference-time execution}---how predicted chunks are committed, queued, preempted, or blended---holding the trained weights fixed while varying execution modes.
 
-We extend this chunk policy so that at rollout it predicts an action chunk $(a_t,\dots,a_{t+k_{\max}-1})$ (with $k_{\max}$ as a maximum bound). At inference time, we maintain an action queue of already-committed actions and decide the next commit length (how many actions to keep executing before replanning) using inference-time triggers. Crucially, \emph{this commit-length decision does not require ground-truth labels}: we use discrepancy measures between overlapping action predictions to detect inconsistent chunk boundary behavior.
+We extend this chunk policy so that at rollout it predicts an action chunk $(a_t,\dots,a_{t+k_{\max}-1})$ (with $k_{\max}$ as a maximum bound). At inference time, we maintain an action queue of already-committed actions and decide the next commit length (how many actions to keep executing before replanning) using inference-time triggers. Unless stated otherwise, ``dynamic'' in this report refers to the overlap-disagreement rule; decide-at-start rules are ablations. Crucially, \emph{this commit-length decision does not require ground-truth labels}: we use discrepancy measures between overlapping action predictions to detect inconsistent chunk boundary behavior.
 
 \paragraph{Execution-time state and action queue.}
-Our executor keeps a FIFO queue of planned actions. When the queue is empty, it plans a new deterministic action chunk from the current observation and chooses an initial commit length based on the evaluation mode (execute-all, receding-horizon, or a dynamic rule).
+Our executor keeps a FIFO (first-in, first-out) queue of planned actions. When the queue is empty, it plans a new deterministic action chunk from the current observation and chooses an initial commit length based on the evaluation mode (execute-all, receding-horizon, or a dynamic rule).
 
 \paragraph{Primary dynamic rule: overlap disagreement (mid-execution preemption).}
 While a queue is active, we repeatedly:
@@ -99,16 +103,16 @@ While a queue is active, we repeatedly:
 When a preemption happens, we also choose a new planned commit length as a decreasing function of the overlap disagreement score (higher disagreement $\Rightarrow$ shorter commits), clamped to $[k_{\min},k_{\max}]$. This directly targets chunk-boundary inconsistency/jitter by stopping early when the model would otherwise continue with a materially different action trajectory than the one already being executed.
 
 \paragraph{Decide-at-start rule: action-change magnitude (cheap prefix selection).}
-In this ablation, the commit length is decided when planning a new chunk: we compute per-step action deltas inside the predicted chunk and select the longest stable prefix whose delta magnitude stays below a threshold $\delta$; if no threshold violation occurs, we execute the full chunk.
+This secondary ablation decides commit length at planning time from action-change magnitude using threshold $\delta$.
 
 \paragraph{Decide-at-start rule: stochastic uncertainty (sample-based prefix selection).}
-Similarly, we plan a chunk but generate $S$ stochastic chunk samples and compute per-step dispersion. We then choose the longest prefix whose dispersion stays below an uncertainty threshold $\epsilon$.
+This secondary ablation decides commit length at planning time from sample dispersion using threshold $\epsilon$.
 
 \paragraph{Learned commit head (auxiliary objective).}
-We optionally train a linear classifier on top of the observation encoder to predict a discrete commit class, supervised by the same longest-prefix rule applied to \emph{expert} actions in the dataset (expert action-change magnitude). At inference, the learned-commit mode queries this head once per replan to choose $\hat{m}\in[k_{\min},k_{\max}]$.
+To reduce manual threshold tuning, we optionally train a linear classifier on top of the observation encoder to predict a discrete commit class, supervised by the same longest-prefix rule applied to \emph{expert} actions in the dataset (expert action-change magnitude). At inference, the learned-commit mode queries this head once per replan to choose $\hat{m}\in[k_{\min},k_{\max}]$.
 
-\paragraph{ACT-style temporal ensembling baseline.}
-In addition to queue-based execution, we implement an ACT-style temporal ensembling mode: at every timestep, the policy predicts a full chunk and deposits each predicted action into a per-timestep bin; the executed action is an exponentially weighted blend over all overlapping predictions for that timestep (older predictions weighted by $\exp(-m i)$, with $m$ configurable in evaluation). This serves as an ACT-aligned comparator to our adaptive queue/preemption method.
+\paragraph{Comparator used in experiments: ACT-style temporal ensembling.}
+In addition to queue-based execution, we evaluate an ACT-style temporal ensembling mode: at every timestep, the policy predicts a full chunk and deposits each predicted action into a per-timestep bin; the executed action is an exponentially weighted blend over all overlapping predictions for that timestep (older predictions weighted by $\exp(-m i)$, with $m$ configurable in evaluation). This serves as an ACT-aligned comparator to our adaptive queue/preemption method.
 
 \paragraph{Train--deploy alignment for chunk CVAE.}
 The chunk CVAE is trained with two reconstruction paths: (i) the standard posterior path using $q(z \mid o, a)$, and (ii) a deployment path using only prior-latent decoding (no future-action encoder input), weighted by a deployment-loss coefficient. We also align train and rollout action spaces by applying the same output squashing in reconstruction and inference. Offline evaluation reports both teacher-path loss and prior-$z{=}0$ action loss to better predict rollout behavior.
@@ -124,9 +128,30 @@ m=\min\bigl(w,\,K,\,L\bigr),
 \]
 If $\text{score}>\tau$, the executor \emph{preempts}: it replaces the queue with a \emph{prefix} of $c$ whose length $\hat{K}\in[k_{\min},k_{\max}]$ is computed from $\text{score}/\tau$ (ratio capped at $4$), linearly interpolating between $k_{\max}$ (small violation) and $k_{\min}$ (large violation), then clamping. If $\text{score}\le\tau$, no preempt occurs; the next environment step executes the first queued action from the FIFO queue. Initial planning under the overlap-disagreement policy loads $k_{\max}$ steps from the first chunk when the queue is empty.
 
+\begin{algorithm}[H]
+\caption{Overlap-disagreement execution (inference time)}
+\begin{algorithmic}[1]
+\State \textbf{Input:} policy $\pi$, thresholds $(\tau, w)$, bounds $(k_{\min}, k_{\max})$
+\State Initialize empty queue $q$
+\For{each timestep $t$}
+  \If{$q$ is empty}
+    \State $c \gets \pi(o_t)$; enqueue first $k_{\max}$ actions of $c$ into $q$
+  \Else
+    \State $c \gets \pi(o_t)$; $m \gets \min(w, |c|, |q|)$
+    \State $\text{score} \gets \frac{1}{m}\sum_{i=0}^{m-1}\lVert c_i - q_i \rVert_2$
+    \If{$\text{score} > \tau$}
+      \State Compute $\hat{K}\in[k_{\min},k_{\max}]$ from capped ratio $\text{score}/\tau$
+      \State Replace $q$ with first $\hat{K}$ actions of $c$
+    \EndIf
+  \EndIf
+  \State Execute and pop the front action of $q$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
 \subsubsection{Decide-at-start heuristics (ablations)}
-\paragraph{Action-change magnitude.} From a single deterministic chunk, form per-step magnitudes $\|a_{i}-a_{i-1}\|_2$; the commit length is the longest prefix before a step exceeds $\delta$ (then clamped to $[k_{\min},k_{\max}]$).
-\paragraph{Stochastic uncertainty.} Draw $S$ stochastic chunks for the same observation; at each future step compute, per action coordinate, the standard deviation across the $S$ samples, then take an $\ell_2$ norm across coordinates to obtain one dispersion scalar per step. The commit length is the longest prefix whose dispersion stays below $\epsilon$; the actions enqueued are the matching prefix of the \emph{deterministic} chunk (samples are used only to choose the length).
+\paragraph{Action-change magnitude.} From one deterministic chunk, we compute per-step $\ell_2$ action deltas and choose the longest prefix below $\delta$ (clamped to $[k_{\min},k_{\max}]$).
+\paragraph{Stochastic uncertainty.} We draw $S$ chunk samples, compute per-step dispersion across samples, and choose the longest prefix below $\epsilon$.
 
 \subsubsection{Dataset, training, and rollout evaluation}
 \paragraph{Dataset.} We train from RoboMimic HDF5 demonstrations: each timestep stores low-dimensional observations and a continuous action vector. Lift, Can, and Square use \emph{separate} datasets and checkpoints (no multi-task mixing).
@@ -147,34 +172,34 @@ Name & Role & Method summary \\
 \midrule
 BC-MLP & Single-step BC & Feedforward behavioral cloning baseline that predicts one action at a time from the current low-dimensional state. \\
 ACT & Chunk transformer policy & Transformer chunking policy that predicts multi-step action sequences; execution mode (full chunk, receding horizon, dynamic, or temporal ensembling) is the main variable. \\
-kNN-BC (VINN-style) & Nonparametric imitation & Observation-space nearest-neighbor action retrieval baseline (VINN-style lightweight variant). \\
-BeT-style & Discrete behavior model & Discretized-action imitation baseline using behavior tokenization with a classifier over action bins. \\
+kNN-BC (VINN-style) & Nonparametric imitation & Observation-space nearest-neighbor action retrieval baseline (VINN-style lightweight variant \cite{vinn}). \\
+BeT-style & Discrete behavior model & Discretized-action imitation baseline using behavior tokenization with a classifier over action bins \cite{bet}. \\
 \bottomrule
 \end{tabular}
 \caption{Imitation baselines and ACT chunk-policy comparator evaluated in this work.}
 \label{tab:baselines}
 \end{table}
 
-\noindent We evaluate BC-MLP, kNN-BC, BeT-style, and ACT variants under a shared simulator/metric protocol.
+\noindent We evaluate BC-MLP, kNN-BC, BeT-style, and ACT variants under a shared simulator/metric protocol. BC-MLP is our in-project simple feedforward behavioral cloning baseline.
 
 \subsection{Experiments}
 
-We evaluate on \textbf{RoboMimic Lift, Can, and Square} with \textbf{low-dimensional observations}. We report episode success, return, horizon length, realized commit-length summaries ($\mathbb{E}[m]$, etc.), \textbf{replans per episode}, and \textbf{policy forward-query counts} (chunk forwards, stochastic multi-samples, and learned head forwards where applicable). Offline metrics include validation imitation loss (and commit CE when trained).
+We evaluate on RoboMimic Lift, Can, and Square with low-dimensional observations. We report episode success, return, horizon length, realized commit-length summaries ($\mathbb{E}[m]$, etc.), replans per episode, and policy forward-query counts (chunk forwards, stochastic multi-samples, and learned head forwards where applicable). Offline metrics include validation imitation loss (and commit CE when trained).
 
-\textbf{Execution modes} for the chunk policy are full-chunk execution, receding-horizon execution, dynamic execution (with selectable rules), temporal ensembling, and learned-commit execution when the auxiliary head is trained. Single-step baselines (BC-MLP, kNN, BeT-style) are evaluated with receding-horizon execution so the policy class matches one-step control.
+Execution modes for the chunk policy are full-chunk execution, receding-horizon execution, dynamic execution (with selectable rules), temporal ensembling, and learned-commit execution when the auxiliary head is trained. Single-step baselines (BC-MLP, kNN, BeT-style) are evaluated with receding-horizon execution so the policy class matches one-step control.
 
-\textbf{Dynamic rule in reported results.} Every \emph{dynamic} row and appendix entry uses the \textbf{overlap-disagreement} rule (mid-execution preemption). The decide-at-start heuristics (action-change magnitude and stochastic dispersion) are implemented but are not included in the reported rollout sweeps below.
+Dynamic rule in reported results: every \emph{dynamic} row and appendix entry uses the overlap-disagreement rule (mid-execution preemption). The decide-at-start heuristics (action-change magnitude and stochastic dispersion) are implemented but are not included in the reported rollout sweeps below.
 
-\textbf{Robustness.} We optionally add Gaussian noise to the normalized observation vector at rollout time. We do not yet simulate object pose resets mid-episode.
+For robustness, we optionally add Gaussian noise to the normalized observation vector at rollout time. We do not yet simulate object pose resets mid-episode.
 
-\textbf{Seeds.} We fix Python/NumPy/Torch random seeds for reproducibility (default seed $42$) and retrain with multiple seeds (e.g.\ $0,1,2$) into separate run directories. Multi-seed summaries are reported for Lift, Can, and Square (Appendix Table~\ref{tab:seed_all_tasks}).
+For reproducibility, we fix Python/NumPy/Torch random seeds (default seed $42$) and retrain with multiple seeds (e.g.\ $0,1,2$) into separate run directories. Multi-seed summaries are reported for Lift, Can, and Square (Appendix Table~\ref{tab:seed_all_tasks}).
 
 \section{Final Results}
 
-Table~\ref{tab:act_main_cross_task} lists all four primary execution modes for each task under deterministic latent decoding. Numbers are mean success rate and return over $20$ episodes per mode, with mean policy queries, replans, and realized commit statistics from the same logs. Returns are task-specific simulator rewards and are compared within each task (not averaged across tasks). Learned-commit rollouts use checkpoints trained with the auxiliary commit head; Table~\ref{tab:learned_commit} in the appendix reports those results. Lift learned offline metrics are: total loss $\approx 0.850$, action loss $\approx 0.222$, KL $\approx 6.16$, commit CE $\approx 1.232$, and prior-$z{=}0$ action loss $\approx 0.442$.
+Table~\ref{tab:act_main_cross_task} lists all four primary execution modes for each task under deterministic latent decoding. Our proposed execution rule is \textbf{Dynamic (overlap)} (mode label highlighted in bold in the table). Numbers are mean success rate and return over $20$ episodes per mode, with mean policy queries, replans, and realized commit statistics from the same logs. Returns are task-specific simulator rewards and are compared within each task (not averaged across tasks). Learned-commit rollouts use checkpoints trained with the auxiliary commit head; Table~\ref{tab:learned_commit} in the appendix reports those results. Lift learned offline metrics are: total loss $\approx 0.850$, action loss $\approx 0.222$, KL $\approx 6.16$, commit CE $\approx 1.232$, and prior-$z{=}0$ action loss $\approx 0.442$.
 
-Lift supports adaptive overlap execution at full success with fewer replans than receding horizon. Can shows strong temporal ensembling and full-chunk performance under z0, while dynamic overlap underperforms in this snapshot (sampled-latent ablations partially recover dynamic; Appendix Table~\ref{tab:abl_sampled_all_tasks}). Square remains difficult across modes; receding horizon achieves slightly higher success than dynamic in this z0 table.
-Learned-commit results show mixed transfer across tasks: Lift remains highly successful but with very short realized commits on average, Can attains moderate success with slightly longer commits, and Square remains difficult despite frequent replanning.
+On Lift, our dynamic-overlap method reaches 1.00 success while reducing replans versus receding horizon (86.65 vs.\ 399.0). Can shows strong temporal ensembling and full-chunk performance under z0, while dynamic overlap underperforms in this snapshot (sampled-latent ablations partially recover dynamic; Appendix Table~\ref{tab:abl_sampled_all_tasks}). Square remains difficult across modes; receding horizon achieves slightly higher success than dynamic in this z0 table.
+Learned-commit results (Appendix Table~\ref{tab:learned_commit}) show mixed transfer across tasks: Lift remains highly successful but with very short realized commits on average, Can attains moderate success with slightly longer commits, and Square remains difficult despite frequent replanning.
 
 \begin{table}[H]
 \centering
@@ -186,24 +211,24 @@ Task & Mode & Success $\uparrow$ & Return $\uparrow$ & Queries $\downarrow$ & Re
 Lift & Temporal ens. & 1.00 & 76.10 & 400.0 & 0.00 & -- \\
 Lift & Full chunk & 0.95 & 74.45 & 25.0 & 24.0 & 16.0 \\
 Lift & Receding & 0.95 & 58.15 & 400.0 & 399.0 & 1.00 \\
-Lift & Dynamic (overlap) & 1.00 & 60.00 & 400.0 & 86.65 & 4.56 \\
+Lift & \textbf{Dynamic (overlap)} & 1.00 & 60.00 & 400.0 & 86.65 & 4.56 \\
 \midrule
 Can & Temporal ens. & 1.00 & 289.15 & 400.0 & 0.00 & -- \\
 Can & Full chunk & 1.00 & 268.15 & 25.0 & 24.0 & 16.0 \\
 Can & Receding & 0.50 & 142.30 & 400.0 & 399.0 & 1.00 \\
-Can & Dynamic (overlap) & 0.50 & 144.90 & 400.0 & 217.60 & 1.83 \\
+Can & \textbf{Dynamic (overlap)} & 0.50 & 144.90 & 400.0 & 217.60 & 1.83 \\
 \midrule
 Square & Temporal ens. & 0.15 & 33.55 & 400.0 & 0.00 & -- \\
 Square & Full chunk & 0.15 & 37.75 & 25.0 & 24.0 & 16.0 \\
 Square & Receding & 0.20 & 41.70 & 400.0 & 399.0 & 1.00 \\
-Square & Dynamic (overlap) & 0.15 & 42.05 & 400.0 & 184.20 & 2.16 \\
+Square & \textbf{Dynamic (overlap)} & 0.15 & 42.05 & 400.0 & 184.20 & 2.16 \\
 \bottomrule
 \end{tabular}
 \caption{ACT-Strong chunk policy across primary execution modes, with z0 rollout decoding and $20$ episodes per cell. Returns are task-specific simulator rewards and are not cross-task comparable.}
 \label{tab:act_main_cross_task}
 \end{table}
 
-Table~\ref{tab:baseline_cross_task} reports one-step baseline results (receding-horizon eval for all baselines). Baselines are competitive on Lift, mixed on Can, and generally weak on Square, consistent with increased task difficulty in this low-dimensional setting.
+Table~\ref{tab:baseline_cross_task} reports one-step baseline results (receding-horizon eval for all baselines). Baselines are competitive on Lift, mixed on Can, and generally weak on Square, consistent with increased task difficulty in this low-dimensional setting. Our proposed method is \textbf{Dynamic (overlap)} in Table~\ref{tab:act_main_cross_task}; Table~\ref{tab:baseline_cross_task} contains only one-step baseline policies.
 
 \begin{table}[H]
 \centering

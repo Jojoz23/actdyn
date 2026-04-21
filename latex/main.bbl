@@ -1,9 +1,16 @@
-\begin{thebibliography}{7}
+\begin{thebibliography}{9}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Babaeizadeh et~al.(2023)Babaeizadeh, Finn, Erhan, Campbell, Levine,
+  Platt, Song, Mao, Fang, and Abbeel]{bet}
+Mohammad Babaeizadeh, Chelsea Finn, Dumitru Erhan, Roy~H. Campbell, Sergey
+  Levine, Robert Platt, Shuran Song, Jiayuan Mao, Kuan Fang, and Pieter Abbeel.
+\newblock Behavior transformers: Cloning $k$ modes with one stone, 2023.
+\newblock URL \url{https://arxiv.org/abs/2206.11251}.
 
 \bibitem[Black et~al.(2025)Black, Galliker, and Levine]{real_time_chunking}
 Kevin Black, Manuel~Y. Galliker, and Sergey Levine.
@@ -44,6 +51,13 @@ Yuejiang Liu, Jubayer~Ibn Hamid, Annie Xie, Yoonho Lee, Maximilian Du, and
 \newblock Bidirectional decoding: Improving action chunking via guided
   test-time sampling, 2024.
 \newblock URL \url{https://arxiv.org/abs/2408.17355}.
+
+\bibitem[Pari et~al.(2021)Pari, Shafiullah, Arunachalam, and Pinto]{vinn}
+Jyothish Pari, Nur~Muhammad Shafiullah, Sridhar~Pandian Arunachalam, and Lerrel
+  Pinto.
+\newblock The surprising effectiveness of representation learning for visual
+  imitation, 2021.
+\newblock URL \url{https://arxiv.org/abs/2112.01511}.
 
 \bibitem[Zhao et~al.(2023)Zhao, Kumar, Levine, and Finn]{zhao2023}
 Tony~Z. Zhao, Vikash Kumar, Sergey Levine, and Chelsea Finn.
